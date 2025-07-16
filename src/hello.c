@@ -23,17 +23,22 @@
 
 #define PIXEL_SIZE 2
 
+//we can technically store these in our app_state, 
+//but for now, we will keep them here.
 static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
 
-static struct chip8 vm;
-
-static Uint64 last_frame_elapsed_millis;
-static uint64_t delta = 0;
 
 
+// stores the state of our GUI application
+struct app_state {
+  struct chip8 vm;
+  Uint64 last_frame_elapsed_millis;
+  Uint64 timer1;
+};
 
-void randomize_fb() {
+
+void randomize_fb(struct app_state *state) {
   //Note that rand() returns a value between 0 and (at least) 32767 (or the maximum of a signed 16 bit int).
   // However, for my compiler, the range is 0 through 0x7fffffff, which is the max value of a signed 32-bit int.
   
@@ -46,9 +51,9 @@ void randomize_fb() {
   // 4 random 16-bit integers and place them at the appropriate spot within the 64-bit integer.
 
   for(uint8_t r = 0; r < 32; r++) {
-    vm.fb[r] = 0;
+    state->vm.fb[r] = 0;
 
-    uint16_t *p = (uint16_t*) (vm.fb + r);
+    uint16_t *p = (uint16_t*) (state->vm.fb + r);
     *p = rand();
     *(p+1) = rand();
     *(p+2) = rand();
@@ -57,7 +62,7 @@ void randomize_fb() {
   }
 }
 
-void draw_chip8(int w, int h, int start_x, int start_y) {
+void draw_chip8(struct app_state *state, int start_x, int start_y) {
 
   
 
@@ -92,7 +97,7 @@ void draw_chip8(int w, int h, int start_x, int start_y) {
 
   //32 rows, 64 columns
   for(uint8_t r = 0; r < CHIP8_HEIGHT; r++) {
-    uint64_t columns = vm.fb[r];
+    uint64_t columns = state->vm.fb[r];
 
     //we shift to left until the set bit is pushed out
     for(uint64_t c = 1, i = 0; i < CHIP8_WIDTH; c <<= 1, i++) {
@@ -118,13 +123,29 @@ void draw_chip8(int w, int h, int start_x, int start_y) {
 /* This function runs once at startup. */
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
+  //https://wiki.libsdl.org/SDL3/SDL_AppInit
 
-  //randomize_fb();
+  //to avoid making this global, we will declare a local static variable.
+  //Static variables are more efficient than heap-allocating, and since we only
+  //need a single instance of app_state, we will safely give its pointer to SDL.
 
+  static struct app_state state;
+  state.timer1 = 0;
+  state.last_frame_elapsed_millis = SDL_GetTicks();
+
+
+  //when initialized, make SDL keep a pointer to our app state.
+  //This pointer will be passed into all of SDL's callback functions, 
+  //so we will be able to track program state without global variables.
+  *appstate = &state;
+
+
+  //light up all pixels in framebuffer
   for(uint8_t i = 0; i < 32; i++) {
-    vm.fb[i] = ULLONG_MAX; //entire screen is lit up
+    state.vm.fb[i] = ULLONG_MAX; 
   }
 
+  //set seed for RNG
   srand(time(NULL));
 
  // SDL_WindowFlags window_flags = SDL_WINDOW_FULLSCREEN;
@@ -136,7 +157,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     return SDL_APP_FAILURE;
   }
 
-  last_frame_elapsed_millis = SDL_GetTicks();
 
   return SDL_APP_CONTINUE;
 }
@@ -144,6 +164,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 /* This function runs when a new event (mouse input, keypresses, etc) occurs. */
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 {
+  //struct app_state *state = appstate;
+
   if (event->type == SDL_EVENT_KEY_DOWN ||
     event->type == SDL_EVENT_QUIT) {
     return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
@@ -154,23 +176,27 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 /* This function runs once per frame, and is the heart of the program. */
 SDL_AppResult SDL_AppIterate(void *appstate)
 {
-  uint64_t time_elapsed_millis = SDL_GetTicks();
+  struct app_state *state = appstate;
 
-  delta += time_elapsed_millis - last_frame_elapsed_millis;
+
+  //update our timer 
+  uint64_t time_elapsed_millis = SDL_GetTicks();
+  state->timer1 += time_elapsed_millis - state->last_frame_elapsed_millis;
 
   // every x milliseconds, randomize the pixels in the framebuffer
-  if(delta > 50) {
-    delta = 0;
-    randomize_fb();
+  if(state->timer1 > 25) {
+    state->timer1 = 0; //reset timer
+    randomize_fb(state);
   }
 
-  last_frame_elapsed_millis = time_elapsed_millis;
+  state->last_frame_elapsed_millis = time_elapsed_millis;
 
 
   const char *message = "RyChip8";
   int w = 0, h = 0;
   float x, y;
   const float scale = 4.0f;
+
 
   /* Center the message and scale it up */
   SDL_GetRenderOutputSize(renderer, &w, &h);
@@ -186,11 +212,10 @@ SDL_AppResult SDL_AppIterate(void *appstate)
   SDL_RenderDebugText(renderer, x, y, message);
 
   // draw chip8 framebuffer
-
   x = ( (w / scale) - (CHIP8_WIDTH * PIXEL_SIZE)) / 2; //center horizontally
   y = ( (h / scale) - (CHIP8_HEIGHT * PIXEL_SIZE)) / 2; //center veritcally
 
-  draw_chip8(w, h, x, y);
+  draw_chip8(state, x, y);
 
   SDL_RenderPresent(renderer);
 

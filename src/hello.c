@@ -14,6 +14,7 @@
 #include <SDL3/SDL_main.h>
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <time.h>
@@ -36,8 +37,14 @@ static SDL_AudioStream *stream = NULL;
 struct app_state {
   struct chip8 vm;
   Uint64 last_frame_elapsed_millis;
-  Uint64 timer1;
-  Uint64 timer2;
+
+   
+  uint8_t use_io_test;
+  struct {
+    Uint64 timer1;
+    Uint64 timer2;
+  };
+ 
 };
 
 
@@ -256,13 +263,39 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
   }
 
 
-  //complete initializing app state and bind it to SDL
+  if(argc > 2) {
+    SDL_Log("You can only insert 0 or 1 arguments in command line!");
+    return SDL_APP_FAILURE;
+  }
 
+  FILE *input = NULL;
+  if(argc == 2) {
+    input = fopen(argv[1], "r");
+    if(input == NULL) {
+      SDL_Log("Cannot open specified file!");
+      return SDL_APP_FAILURE;
+    }
+  }
+
+
+
+
+  //complete initializing app state and bind it to SDL
+  state.use_io_test = input == NULL;
   state.timer1 = 0;
   state.timer2 = 4000; //so we dont have to wait a full 8 seconds at startup
   state.last_frame_elapsed_millis = SDL_GetTicks();
-  state.vm.sound_timer = 0;
-  chip8_init(&state.vm, NULL);
+
+
+  if(!chip8_init(&state.vm, input)) {
+    SDL_Log("Failed to initialize Chip8 Emulator!");
+    fclose(input);
+
+    return SDL_APP_FAILURE;
+  }
+
+  fclose(input);
+  
 
 
   //when initialized, make SDL keep a pointer to our app state.
@@ -329,24 +362,27 @@ SDL_AppResult SDL_AppIterate(void *appstate)
   uint64_t delta = time_elapsed_millis - state->last_frame_elapsed_millis;
   state->last_frame_elapsed_millis = time_elapsed_millis;
 
-  state->timer1 += delta;
-  state->timer2 += delta;
+  if(state->use_io_test) {
+    state->timer1 += delta;
+    state->timer2 += delta;
+
+    // every x milliseconds, randomize the pixels in the framebuffer
+    if(state->timer1 > 25) {
+      state->timer1 = 0; //reset timer
+      randomize_fb(state);
+    }
 
 
-  // every x milliseconds, randomize the pixels in the framebuffer
-  if(state->timer1 > 25) {
-    state->timer1 = 0; //reset timer
-    randomize_fb(state);
+    //every 4 seconds, replay the beep sound
+    if(state->timer2 > 8000) {
+      state->timer2 = 0;
+
+      //gives us approx 4 seconds of beep
+      state->vm.sound_timer = 255;
+    }
   }
 
-
-  //every 4 seconds, replay the beep sound
-  if(state->timer2 > 8000) {
-    state->timer2 = 0;
-
-    //gives us approx 4 seconds of beep
-    state->vm.sound_timer = 255;
-  }
+  
 
   //Update the 60 Hz timer along with the VM's delay_timer and sound_timer registers
   // 60Hz = every 16 milliseconds
@@ -406,6 +442,14 @@ SDL_AppResult SDL_AppIterate(void *appstate)
   draw_chip8_debug_keys(state, x, y);
 
   SDL_RenderPresent(renderer);
+
+
+
+  // process chip8
+  if(!chip8_process_instruction(&state->vm)) {
+    SDL_Log("Cannot process instruction at address %d", state->vm.ram[state->vm.pc]);
+    return SDL_APP_FAILURE;
+  }
 
   return SDL_APP_CONTINUE;
 }

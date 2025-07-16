@@ -12,6 +12,8 @@
 #define CHIP8_WIDTH 64
 #define CHIP8_HEIGHT 32
 #define CHIP8_STACK_LIMIT 24
+#define CHIP8_HEX_FONT_START 0
+#define CHIP8_HEX_FONT_SIZE 5
 
 /*
   Keyboard Layout: 
@@ -241,6 +243,8 @@ int chip8_init(struct chip8 *vm, FILE *file);
 
 int chip8_load_rom(struct chip8 *vm, FILE *file);
 void chip8_update_timer(struct chip8 *vm, uint64_t delta_time_millis);
+
+int chip8_process_instruction(struct chip8 *vm);
 
 
 #endif //CHIP8_H

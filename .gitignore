@@ -3,3 +3,4 @@ chip8_docs/
 ignored/
 build/
 .sync-exclude.lst
+.vscode/

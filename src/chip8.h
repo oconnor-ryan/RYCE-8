@@ -6,6 +6,10 @@
 //all Chip8 programs are loaded at address 512 in RAM
 #define CHIP8_PROG_START 512
 
+#define CHIP8_WIDTH 64
+#define CHIP8_HEIGHT 32
+
+
 // Font Data for the letters A-F and digits 0-9
 /*
 "0"	Binary	Hex
@@ -197,7 +201,7 @@ struct chip8 {
   /* Output */
   
   // framebuffer data. Its a 64x32 monochrome display, meaning that only 1 bit is needed to display each pixel
-  uint64_t fb[32]; 
+  uint64_t fb[CHIP8_HEIGHT]; 
 
 
 };

@@ -9,6 +9,32 @@
 #define CHIP8_WIDTH 64
 #define CHIP8_HEIGHT 32
 
+/*
+  Keyboard Layout: 
+
+   1	2	3	C
+   4	5	6	D
+   7	8	9	E
+   A	0	B	F
+*/
+enum chip8_key {
+   CHIP8_KEY_0 = 1 << 0,
+   CHIP8_KEY_1 = 1 << 1,
+   CHIP8_KEY_2 = 1 << 2,
+   CHIP8_KEY_3 = 1 << 3,
+   CHIP8_KEY_4 = 1 << 4,
+   CHIP8_KEY_5 = 1 << 5,
+   CHIP8_KEY_6 = 1 << 6,
+   CHIP8_KEY_7 = 1 << 7,
+   CHIP8_KEY_8 = 1 << 8,
+   CHIP8_KEY_9 = 1 << 9,
+   CHIP8_KEY_A = 1 << 10,
+   CHIP8_KEY_B = 1 << 11,
+   CHIP8_KEY_C = 1 << 12,
+   CHIP8_KEY_D = 1 << 13,
+   CHIP8_KEY_E = 1 << 14,
+   CHIP8_KEY_F = 1 << 15
+}; 
 
 // Font Data for the letters A-F and digits 0-9
 /*
@@ -133,24 +159,7 @@
 
 
 // Stores the font data to display characters 0-9 and A-F
-const uint8_t FONT_DATA_HEX[5 * 16] = {
-  0xF0, 0x90, 0x90, 0x90, 0xF,  // "0"
-  0x20, 0x60, 0x20, 0x20, 0x70, // "1"
-  0xF0, 0x10, 0xF0, 0x80, 0xF0, // "2"
-  0xF0, 0x10, 0xF0, 0x10, 0xF0, // "3"
-  0x90, 0x90, 0xF0, 0x10, 0x10, // "4"
-  0xF0, 0x80, 0xF0, 0x10, 0xF0, // "5"
-  0xF0, 0x80, 0xF0, 0x90, 0xF0, // "6"
-  0xF0, 0x10, 0x20, 0x40, 0x40, // "7"
-  0xF0, 0x90, 0xF0, 0x90, 0xF0, // "8"
-  0xF0, 0x90, 0xF0, 0x10, 0xF0, // "9"
-  0xF0, 0x90, 0xF0 ,0x90, 0x90, // "A"
-  0xE0, 0x90, 0xE0, 0x90, 0xE0, // "B"
-  0xF0, 0x80, 0x80, 0x80, 0xF0, // "C"
-  0xE0, 0x90, 0x90, 0x90, 0xE0, // "D"
-  0xF0, 0x80, 0xF0, 0x80, 0xF0, // "E"
-  0xF0, 0x80, 0xF0, 0x80, 0x80  // "F"
-};
+extern const uint8_t FONT_DATA_HEX[5 * 16];
 
 struct chip8 {
 
@@ -205,6 +214,15 @@ struct chip8 {
 
 
 };
+
+
+static inline void chip8_set_key(struct chip8 *vm, enum chip8_key key) {
+  vm->keyboard_inputs |= key;
+}
+
+static inline void chip8_remove_key(struct chip8 *vm, enum chip8_key key) {
+  vm->keyboard_inputs &= ~key;
+}
 
 #endif //CHIP8_H
 

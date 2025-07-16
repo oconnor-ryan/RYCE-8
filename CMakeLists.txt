@@ -15,7 +15,7 @@ set(CMAKE_BUILD_TYPE "Debug")
 add_subdirectory(vendor/SDL EXCLUDE_FROM_ALL)
 
 # Create your game executable target as usual
-add_executable(hello MACOSX_BUNDLE src/hello.c)
+add_executable(hello MACOSX_BUNDLE src/hello.c src/chip8.c)
 
 # Link to the actual SDL3 library.
 target_link_libraries(hello PRIVATE SDL3::SDL3)

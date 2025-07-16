@@ -2,12 +2,14 @@
 #define CHIP8_H
 
 #include <stdint.h>
+#include <stdio.h>
 
 //all Chip8 programs are loaded at address 512 in RAM
 #define CHIP8_PROG_START 512
 
 #define CHIP8_WIDTH 64
 #define CHIP8_HEIGHT 32
+#define CHIP8_STACK_LIMIT 24
 
 /*
   Keyboard Layout: 
@@ -176,7 +178,7 @@ struct chip8 {
   //array of 24 2-byte values used to store return addresses after completing a subroutine. 
   //Thus, there are up to 24 nested subroutines available.
   //The original RCA 1802 microprocesser Chip8 was implemented on states that the stack is 48 bytes long
-  uint16_t stack[24]; 
+  uint16_t stack[CHIP8_STACK_LIMIT]; 
 
 
 
@@ -213,6 +215,14 @@ struct chip8 {
   uint64_t fb[CHIP8_HEIGHT]; 
 
 
+
+  // Misc
+
+  // A timer used to track how many milliseconds have passed since the timer had last elapsed.
+  // This is a 60Hz timer, meaning that there are 60 cycles per second.
+  // After every cycle, this timer should update the delay_timer and sound_timer if necessary.
+  uint64_t millis_timer60hz;
+
 };
 
 
@@ -223,6 +233,9 @@ static inline void chip8_set_key(struct chip8 *vm, enum chip8_key key) {
 static inline void chip8_remove_key(struct chip8 *vm, enum chip8_key key) {
   vm->keyboard_inputs &= ~key;
 }
+
+void chip8_load_rom(struct chip8 *vm, FILE *file);
+void chip8_update_timer(struct chip8 *vm, uint64_t delta_time_millis);
 
 #endif //CHIP8_H
 

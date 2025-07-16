@@ -38,8 +38,6 @@ struct app_state {
   Uint64 last_frame_elapsed_millis;
   Uint64 timer1;
   Uint64 timer2;
-
-  Uint64 timer60hz; 
 };
 
 
@@ -264,8 +262,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
   //complete initializing app state and bind it to SDL
 
   state.timer1 = 0;
-  state.timer2 = 4000;
-  state.timer60hz = 0;
+  state.timer2 = 4000; //so we dont have to wait a full 8 seconds at startup
   state.last_frame_elapsed_millis = SDL_GetTicks();
   state.vm.sound_timer = 0;
 
@@ -335,7 +332,6 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 
   state->timer1 += delta;
   state->timer2 += delta;
-  state->timer60hz += delta;
 
 
   // every x milliseconds, randomize the pixels in the framebuffer
@@ -355,20 +351,12 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 
   //Update the 60 Hz timer along with the VM's delay_timer and sound_timer registers
   // 60Hz = every 16 milliseconds
-  if(state->timer60hz > 16) {
-    state->timer60hz -= 16;
-    //state->timer60hz -= 0;
-    
-    //every 16 milliseconds, if either timer is non-zero, decrement by 1
-    if(state->vm.delay_timer != 0) {
-      state->vm.delay_timer--;
-    }
-    if(state->vm.sound_timer != 0) {
-      SDL_ResumeAudioStreamDevice(stream);
-      state->vm.sound_timer--;
-    } else {
-      SDL_PauseAudioStreamDevice(stream);
-    }
+  chip8_update_timer(&state->vm, delta);
+
+  if(state->vm.sound_timer != 0) {
+    SDL_ResumeAudioStreamDevice(stream);
+  } else {
+    SDL_PauseAudioStreamDevice(stream);
   }
 
 

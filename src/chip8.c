@@ -20,3 +20,19 @@ const uint8_t FONT_DATA_HEX[5 * 16] = {
   0xF0, 0x80, 0xF0, 0x80, 0x80  // "F"
 };
 
+void chip8_update_timer(struct chip8 *vm, uint64_t delta_time_millis) {
+  vm->millis_timer60hz += delta_time_millis;
+
+  if(vm->millis_timer60hz > 16) {
+    vm->millis_timer60hz -= 16;
+    //vm->millis_timer60hz = 0;
+    
+    //every 16 milliseconds, if either timer is non-zero, decrement by 1
+    if(vm->delay_timer != 0) {
+      vm->delay_timer--;
+    }
+    if(vm->sound_timer != 0) {
+      vm->sound_timer--;
+    } 
+  }
+}

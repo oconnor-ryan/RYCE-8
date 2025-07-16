@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#define CHIP8_RAM_LIMIT 4096
+
 //all Chip8 programs are loaded at address 512 in RAM
 #define CHIP8_PROG_START 512
 
@@ -172,7 +174,7 @@ struct chip8 {
 
   /* memory */
 
-  uint8_t ram[4096];
+  uint8_t ram[CHIP8_RAM_LIMIT];
 
 
   //array of 24 2-byte values used to store return addresses after completing a subroutine. 
@@ -234,8 +236,12 @@ static inline void chip8_remove_key(struct chip8 *vm, enum chip8_key key) {
   vm->keyboard_inputs &= ~key;
 }
 
-void chip8_load_rom(struct chip8 *vm, FILE *file);
+
+int chip8_init(struct chip8 *vm, FILE *file);
+
+int chip8_load_rom(struct chip8 *vm, FILE *file);
 void chip8_update_timer(struct chip8 *vm, uint64_t delta_time_millis);
+
 
 #endif //CHIP8_H
 

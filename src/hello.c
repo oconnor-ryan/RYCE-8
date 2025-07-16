@@ -220,10 +220,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
   
 
 
-  //light up all pixels in framebuffer
-  for(uint8_t i = 0; i < 32; i++) {
-    state.vm.fb[i] = ULLONG_MAX; 
-  }
+  
 
   //set seed for RNG
   srand(time(NULL));
@@ -265,6 +262,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
   state.timer2 = 4000; //so we dont have to wait a full 8 seconds at startup
   state.last_frame_elapsed_millis = SDL_GetTicks();
   state.vm.sound_timer = 0;
+  chip8_init(&state.vm, NULL);
+
 
   //when initialized, make SDL keep a pointer to our app state.
   //This pointer will be passed into all of SDL's callback functions, 

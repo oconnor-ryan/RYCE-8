@@ -110,7 +110,8 @@ void draw_chip8(struct app_state *state, int start_x, int start_y) {
     uint64_t columns = state->vm.fb[r];
 
     //we shift to left until the set bit is pushed out
-    for(uint64_t c = 1; 1 ; c <<= 1) {
+   // for(uint64_t c = 1; 1 ; c <<= 1) {
+    for(uint64_t c = (uint64_t)1 << 63; 1; c >>= 1) {
       //is on
       if(columns & c) {
         SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
@@ -123,9 +124,9 @@ void draw_chip8(struct app_state *state, int start_x, int start_y) {
 
       rect.x += PIXEL_SIZE;
 
-      if(c & ((uint64_t)1 << 63)) {
-        break;
-      }
+     // if(c & ((uint64_t)1 << 63)) break;
+      if(c & 1) break;
+      
     }
 
     rect.x = start_x;

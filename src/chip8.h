@@ -215,7 +215,34 @@ struct chip8 {
 
   /* Output */
   
-  // framebuffer data. Its a 64x32 monochrome display, meaning that only 1 bit is needed to display each pixel
+  // framebuffer data. Its a 64x32 monochrome display, meaning that only 1 bit is needed to display each pixel.
+  /*
+   Screen coordinates are displayed as follows (x,y):
+   |-----------------|
+   | (0,0)   (63,0)  |
+   |                 |
+   |                 |
+   | (0,31)  (63,31) |
+   |-----------------|
+
+
+   So for our framebuffer, each row is a 64-bit integer representing a row.
+   The 1st row in the FB corresponds to screen coordinates Y = 0
+   The 2st row in the FB corresponds to screen coordinates Y = 1
+   ...
+   The 32nd row in the FB corresponds to screen coordinates Y = 31
+
+   For X coordinates:
+   The most significant bit (63rd bit) corresponds to screen coordinate X = 0
+   The 62nd bit corresponds to screen coordinate X = 1
+   The 61nd bit corresponds to screen coordinate X = 2
+   ...
+   The least significant bit (0th bit) corresponds to screen coordinate X = 63
+
+
+   The X coordinates must work this way since that's the bit order that sprites
+   use to be drawn: MSB on left side and LSB on right side of screen.
+  */
   uint64_t fb[CHIP8_HEIGHT]; 
 
 

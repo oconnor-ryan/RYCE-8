@@ -26,14 +26,27 @@ const uint8_t FONT_DATA_HEX[5 * 16] = {
 
 //code from https://blog.regehr.org/archives/1063
 //perform bit rotation so that bits on left wrap around to the right
-uint64_t rotate_left_64(uint64_t input, uint8_t shift) {
-  return (input << shift) | (input >> (-shift & 63));
+static inline uint64_t rotate_left_64(uint64_t input, uint8_t shift) {
+ // return (input << shift) | (input >> (-shift & 63));
+  return (input << shift) | (input >> (64 - shift));
 }
 
 //code from https://blog.regehr.org/archives/1063
 //perform bit rotation so that bits on right wrap around to the left
-uint64_t rotate_right_64(uint64_t input, uint8_t shift) {
-  return (input >> shift) | (input << (-shift & 63));
+static inline uint64_t rotate_right_64(uint64_t input, uint8_t shift) {
+  //return (input >> shift) | (input << (-shift & 63));
+  return (input >> shift) | (input << (64 - shift));
+
+}
+
+static inline uint8_t reverse_bit_order(uint8_t n) {
+  uint8_t r = 0;
+  for(uint8_t i = 0; i < 8; i++) {
+    if(n & (1 << i)) {
+      r |= 1 << (8 - 1 - i);
+    }
+  }
+  return r;
 }
 
 int chip8_init(struct chip8 *vm, FILE *file) {
@@ -41,9 +54,9 @@ int chip8_init(struct chip8 *vm, FILE *file) {
   //set seed for randomness
   srand(time(NULL));
 
-  //light up all pixels in framebuffer
-  for(uint8_t i = 0; i < 32; i++) {
-    vm->fb[i] = ULLONG_MAX; 
+  //turn off all pixels in framebuffer
+  for(uint8_t i = 0; i < CHIP8_HEIGHT; i++) {
+    vm->fb[i] = 0; 
   }
 
   vm->delay_timer = 0;
@@ -315,24 +328,66 @@ int chip8_process_instruction(struct chip8 *vm) {
       uint8_t y = low >> 4;
       uint8_t n = low & 0x0F;
 
+      // Note that when drawing a sprite, if a lit pixel from the sprite draws
+      // over a previously lit pixel, that pixel gets TURNED OFF. It does not stay on.
 
-      uint8_t collision = 0;
+      //make sure collision bool matches the size of the row (64 bits). Otherwise, the result of a comparison
+      // will be truncated when using AND
+      uint64_t collision = 0;
+
+      // because sprites are formated like so:
+      /*
+              Bits:
+              7 6 5 4 3 2 1 0
+      Byte 1: 0 1 1 1 1 1 1 0
+      Byte 2: 0 1 0 0 0 0 0 0
+      Byte 3: 0 1 1 1 1 1 1 0
+      Byte 4: 0 1 0 0 0 0 0 0
+      Byte 5: 0 1 1 1 1 1 1 0
+
+      Our framebuffer must also match this format by making the most significant
+      bit (63rd) correspond to X = 0 on the screen and the least significant bit (0th
+      bit correspond to X = 63 on screen.
+
+
+      Because of this, each row is drawn "right-to-left". So if Vx asks to 
+      draw at screen coordinate X = 10, it will: 
+      
+      Draw the 0th (LSB) bit at X = 10,
+      Draw the 1st       bit at X = 9,
+      Draw the 2nd       bit at X = 8,
+      ...
+      Draw the 7th (MSB) bit at X = 3.
+
+      So without subtracting by 7 for the framebuffers X index (fbx), 
+      the sprite will be drawn with its upper right corner at (Vx, Vy).
+
+      Because Chip8 expects sprites to be drawn with the upper left corner
+      of the sprite being at (Vx, Vy), we need to subtract fbx by 7.
+      */
+      uint8_t fbx = ((CHIP8_WIDTH - 1) - vm->V[x]) - 7;
 
       //for each row to draw to
       for(uint8_t i = 0; i < n; i++) {
+        //uint8_t index_fb = n - 1 - i;
+
+        //Apply vertical wraparound if sprite overflows offscren.
+        uint8_t fby = (vm->V[y] + i) % (CHIP8_HEIGHT);
 
         //grab copy of row
-        uint64_t old_row = vm->fb[vm->V[y] + i];
+        uint64_t old_row = vm->fb[fby];
 
-        //create mask for bits we are going to draw to.
-        uint64_t mask = rotate_left_64(0xFF,  vm->V[x]);
+        //create mask for bits we are going to draw to. Wrap horizontally.
+        uint64_t mask = rotate_left_64(0xFF,  fbx);
 
         //zero out the bits we dont draw to in old_row.
         old_row &= mask;
 
         //create a empty 64-bit row, get an 8-bit row from our sprite, and
-        //shift our sprite's row into the empty row, wrapping around as needed.
-        uint64_t sprite_row = rotate_left_64(vm->ram[vm->I], vm->V[x]);
+        //shift our sprite's row into the empty row, wrapping horizontally as needed.
+        uint8_t sprite_row_data = vm->ram[vm->I + i];
+        
+        uint64_t sprite_row = rotate_left_64(sprite_row_data, fbx);
 
 
         // How do we know if collision occured?
@@ -341,22 +396,24 @@ int chip8_process_instruction(struct chip8 *vm) {
         //  00111011 (old)
         //^ 00010100 (sprite)
         //  ========
-        //  00100100 (new)
+        //  00101111 (new)
         //     ^
-        //  collided
+        //  collided. Note that collision can be detected by checking if the bit in both old_row and sprite_row
+        //            are 1.
 
         // To check if a collision occurred, simply AND the (old) and (sprite)
 
-        //check if a collision would occur (aka: if previously lit bit gets overwritten by a lit
-        //bit inside the sprite)
         //use OR so that if it was already set to 1, it stays at 1.
-        collision |= old_row & (uint64_t) sprite_row;
+        collision |= old_row & sprite_row;
+
 
         //draw row to framebuffer
-        vm->fb[vm->V[y] + i] ^= sprite_row;
+        vm->fb[fby] ^= sprite_row;
+
       }
 
-      vm->V[15] = collision;
+      //remember that V MUST BE 0 or 1, it cannot be any other value
+      vm->V[15] = collision ? 1 : 0;
       break;
     }
 
@@ -399,6 +456,8 @@ int chip8_process_instruction(struct chip8 *vm) {
         //LD (Fx0A) - Wait for key press, store what key was pressed in V[x]
         case 0x0A: {
 
+          //TODO: Force VM to wait for a key RELEASE event in Fx0A instruction
+          
           //if no keys have been pressed yet, immediately exit the function
           //to avoid incrementing PC. This halts the execution of the VM
           //while allowing the host process to not be suspended.

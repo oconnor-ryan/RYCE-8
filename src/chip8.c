@@ -5,7 +5,7 @@
 #include <string.h>
 
 const uint8_t FONT_DATA_HEX[5 * 16] = {
-  0xF0, 0x90, 0x90, 0x90, 0xF,  // "0"
+  0xF0, 0x90, 0x90, 0x90, 0xF0,  // "0"
   0x20, 0x60, 0x20, 0x20, 0x70, // "1"
   0xF0, 0x10, 0xF0, 0x80, 0xF0, // "2"
   0xF0, 0x10, 0xF0, 0x10, 0xF0, // "3"
@@ -219,6 +219,15 @@ int chip8_process_instruction(struct chip8 *vm) {
       uint8_t x = high & 0x0F;
       uint8_t y = low >> 4;
 
+      //Note that instructions 8xy6 and 8xyE used to be undocumented,
+      // but the very 1st Chip8 interpreter used 8xy6 like so:
+      // VF = LSB of Vx, Vx = Vy >> 1
+      // and used 8xyE like so:
+      // VF = MSB of Vx, Vx = Vy << 1
+
+      // However, in later versions and forks of Chip8, the Vy ended up being
+      // ignored and Vx was used in its place instead.
+
       switch(low & 0x0F) {
         //LD (8xy0) - Set Vx = Vy
         case 0: {
@@ -258,7 +267,12 @@ int chip8_process_instruction(struct chip8 *vm) {
           break;
         }
         //SHR (8xy6) - Set Vx = Vx >> 1  (note that value of y does not matter and is unused).
+        // Also note that the VF = LSB of Vx before being shifted.
         case 6: {
+          vm->V[15] = vm->V[x] & 1;
+
+          //vm->V[x] = vm->V[y] >> 1;
+
           vm->V[x] >>= 1;
           break;
         }
@@ -272,7 +286,11 @@ int chip8_process_instruction(struct chip8 *vm) {
         }
 
         //SHL (8xyE) - Set Vx = Vx << 1, ignore y.
+        //Also note to set VF = MSB of Vx before it is shifted
         case 0xE: {
+          vm->V[15] = vm->V[x] & (1 << 7);
+          //vm->V[x] = vm->V[y] << 1
+
           vm->V[x] <<= 1;
           break;
         }
@@ -522,7 +540,7 @@ int chip8_process_instruction(struct chip8 *vm) {
         //   If Vx = 11, it will set I = location of the 'B' sprite
         //   If Vx = 15, it will set I = location of the 'F' sprite
         case 0x29: {
-          vm->I = vm->ram[CHIP8_HEX_FONT_START + (CHIP8_HEX_FONT_SIZE * vm->V[x])];
+          vm->I = CHIP8_HEX_FONT_START + (CHIP8_HEX_FONT_SIZE * vm->V[x]);
           break;
         }
 
@@ -540,19 +558,17 @@ int chip8_process_instruction(struct chip8 *vm) {
 
           //starting at rightmost (LS) digit, insert the value of its digit
           //at I+2, then I+1, then I
-          uint8_t i = 2;
+          uint8_t i = 3;
           while(vx != 0) {
+            i--;
             vm->ram[vm->I+i] = vx % 10;
             vx /= 10;
-            i--;
           }
 
           // if we have not set all 3 digits, set the rest to 0.
-          while(1) {
-            vm->ram[vm->I+i] = 0;
-            if(i == 0) break;
-
+          while(i != 0) {
             i--;
+            vm->ram[vm->I+i] = 0;
           }
 
           break;

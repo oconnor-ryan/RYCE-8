@@ -3,6 +3,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 const uint8_t FONT_DATA_HEX[5 * 16] = {
   0xF0, 0x90, 0x90, 0x90, 0xF0,  // "0"
@@ -49,6 +50,30 @@ static inline uint8_t reverse_bit_order(uint8_t n) {
   return r;
 }
 
+uint8_t chip8_key_to_num(enum chip8_key key) {
+  switch(key) {
+    case CHIP8_KEY_0: return 0;
+    case CHIP8_KEY_1: return 1;
+    case CHIP8_KEY_2: return 2;
+    case CHIP8_KEY_3: return 3;
+    case CHIP8_KEY_4: return 4;
+    case CHIP8_KEY_5: return 5;
+    case CHIP8_KEY_6: return 6;
+    case CHIP8_KEY_7: return 7;
+    case CHIP8_KEY_8: return 8;
+    case CHIP8_KEY_9: return 9;
+    case CHIP8_KEY_A: return 10;
+    case CHIP8_KEY_B: return 11;
+    case CHIP8_KEY_C: return 12;
+    case CHIP8_KEY_D: return 13;
+    case CHIP8_KEY_E: return 14;
+    case CHIP8_KEY_F: return 15;
+
+    //should never occur, use dummy value
+    default: assert(0); return 255;
+  }
+}
+
 int chip8_init(struct chip8 *vm, FILE *file) {
 
   //set seed for randomness
@@ -65,7 +90,8 @@ int chip8_init(struct chip8 *vm, FILE *file) {
   vm->keyboard_inputs = 0;
   vm->pc = CHIP8_PROG_START; //index within RAM
   vm->sp = 0;  // index within the stack.
-  
+
+  vm->key_interrupt_flags = 0; //set all key interrupt flags to 0
 
   //optional, zero out registers
   vm->I = 0;
@@ -91,8 +117,11 @@ int chip8_init(struct chip8 *vm, FILE *file) {
 void chip8_update_timer(struct chip8 *vm, uint64_t delta_time_millis) {
   vm->millis_timer60hz += delta_time_millis;
 
-  if(vm->millis_timer60hz > 16) {
-    vm->millis_timer60hz -= 16;
+  // note that 60Hz = 60 cycles per second, or 16.666 repeating.
+  // since the millis are integers, it's more accurate to use 17.
+
+  if(vm->millis_timer60hz > 17) {
+    vm->millis_timer60hz -= 17;
     //vm->millis_timer60hz = 0;
     
     //every 16 milliseconds, if either timer is non-zero, decrement by 1
@@ -126,6 +155,15 @@ int chip8_load_rom(struct chip8 *vm, FILE *file) {
 // rolled back and this function returns 0.
 // Returns 1 on success.
 int chip8_process_instruction(struct chip8 *vm) {
+
+  uint8_t wait_for_keyboard = vm->key_interrupt_flags & CHIP8_KEY_INT_FLAG_WAITING;
+  uint8_t was_key_released = vm->key_interrupt_flags & CHIP8_KEY_INT_FLAG_RELEASED;
+
+  if(wait_for_keyboard && !was_key_released) {
+    return 1;
+  }
+
+
   uint8_t high = vm->ram[vm->pc];  //MSB
   uint8_t low = vm->ram[vm->pc+1]; //LSB
 
@@ -253,7 +291,7 @@ int chip8_process_instruction(struct chip8 *vm) {
         //ADD (8xy4) - Set Vx = Vx + Vy, set VF = carry
         case 4: {
           uint8_t old_x = vm->V[x];
-          vm->V[x] = vm->V[x] + vm->V[y];
+          vm->V[x] += vm->V[y];
 
           //if result overflows, set carry register.
           vm->V[15] = old_x > vm->V[x];
@@ -262,36 +300,56 @@ int chip8_process_instruction(struct chip8 *vm) {
         //SUB (8xy5) - Set Vx = Vx - Vy, set VF = NOT borrow
         case 5: {
           //VF = 1 if no undeflow, VF = 0 if underflow occurs
-          vm->V[15] = vm->V[x] > vm->V[y];
-          vm->V[x] = vm->V[x] - vm->V[y];
+          uint8_t oldx = vm->V[x];
+          vm->V[x] -= vm->V[y];
+
+          //the flag register must be set AFTER you calculate the SUB. 
+          //This avoids an issue where if Vx is VF, then it should be 
+          //set to whether the operation overflowed or not.
+          vm->V[15] = oldx >= vm->V[y];
+
           break;
         }
         //SHR (8xy6) - Set Vx = Vx >> 1  (note that value of y does not matter and is unused).
         // Also note that the VF = LSB of Vx before being shifted.
         case 6: {
-          vm->V[15] = vm->V[x] & 1;
-
+          uint8_t vf = vm->V[x] & 1;
           //vm->V[x] = vm->V[y] >> 1;
 
           vm->V[x] >>= 1;
+
+          // make sure VF gets set AFTER the operation so that if Vx = VF, the
+          // VF holds its LSB, not the result of the operation.
+
+          vm->V[15] = vf;
           break;
         }
 
         //SUBN (8xy7) - Set Vx = Vy - Vx, set VF = NOT borrow.
         case 7: {
           //VF = 1 if no undeflow, VF = 0 if underflow occurs
-          vm->V[15] = vm->V[y] > vm->V[x];
+          uint8_t oldx = vm->V[x];
           vm->V[x] = vm->V[y] - vm->V[x];
+
+          //make sure VF flag is set LAST
+          vm->V[15] = vm->V[y] >= oldx;
+
           break;
         }
 
         //SHL (8xyE) - Set Vx = Vx << 1, ignore y.
         //Also note to set VF = MSB of Vx before it is shifted
         case 0xE: {
-          vm->V[15] = vm->V[x] & (1 << 7);
+          //make sure vf is 0 or 1. The AND operation will put the
+          //selected bit at the MSB, so we must convert non-zero values to 1.
+          uint8_t vf = (vm->V[x] & (1 << 7)) ? 1 : 0;
           //vm->V[x] = vm->V[y] << 1
 
           vm->V[x] <<= 1;
+
+          //only set after operation is complete
+          vm->V[15] = vf;
+
           break;
         }
 
@@ -474,39 +532,22 @@ int chip8_process_instruction(struct chip8 *vm) {
         //LD (Fx0A) - Wait for key press, store what key was pressed in V[x]
         case 0x0A: {
 
-          //TODO: Force VM to wait for a key RELEASE event in Fx0A instruction
-          
-          //if no keys have been pressed yet, immediately exit the function
-          //to avoid incrementing PC. This halts the execution of the VM
-          //while allowing the host process to not be suspended.
-          if(vm->keyboard_inputs == 0) {
+          //if we are not waiting for keyboard yet, we are now.
+          if(!wait_for_keyboard) {
+            vm->key_interrupt_flags |= CHIP8_KEY_INT_FLAG_WAITING;
+
+            //set released flag to 0 so that we can wait until the next
+            //key release
+            vm->key_interrupt_flags &= ~CHIP8_KEY_INT_FLAG_RELEASED;
             return 1;
           }
 
-          //if a key was pressed, find out what key it was and return its numberic value
-          // (0-15) for keys (0-9 and A-F)
+          //if we are waiting for keyboard, and a key was released
+          vm->key_interrupt_flags = 0; //we are not waiting anymore for key
 
+          //convert last_released_key enum to number between 0-15.
 
-          //TODO: There is ambiguity on whether or not the VM will halt if it needs
-          //to wait for a key press when 1 or more keys are already being pressed down.
-          //Does it wait for the next keyboard press or does it just read one of they
-          //keys that are already being pressed down?
-
-          
-
-          //FIXME. Because we are polling for keyboard inputs rather than using an interrupt,
-          //we may run into a rare case where 2 or more keys are set at once.
-          //For now, we will prioritize keys that are closer to 0.
-          //In future, consider adding a boolean to halt the VM until a 'keyboard interrupt'
-          //is sent. We can use SDL's AppEvent() callback to similate this interrupt.
-
-          //find out which key was pressed.
-          for(uint8_t i = 0; i < 16; i++) {
-            if(vm->keyboard_inputs & (1 << i)) {
-              vm->V[x] = i;
-              break;
-            }
-          }
+          vm->V[x] = chip8_key_to_num(vm->last_released_key);
 
           break;
         }

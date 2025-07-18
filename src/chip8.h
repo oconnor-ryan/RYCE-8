@@ -15,6 +15,14 @@
 #define CHIP8_HEX_FONT_START 0
 #define CHIP8_HEX_FONT_SIZE 5
 
+
+
+enum chip8_key_int_flag {
+   CHIP8_KEY_INT_FLAG_WAITING =  1 << 0,
+   CHIP8_KEY_INT_FLAG_RELEASED = 1 << 1
+};
+
+
 /*
   Keyboard Layout: 
 
@@ -249,6 +257,16 @@ struct chip8 {
 
   // Misc
 
+
+  //used to track when a key is released for the Fx0A instruction.
+  // if (key_interrupt_flags & CHIP8_KEY_INT_FLAG_WAITING) is 1, we are
+  // at the Fx0A instruction waiting for a key press.
+  //
+  // if (key_interrupt_flags & CHIP8_KEY_INT_FLAG_RELEASED) is 1, a key
+  // was released, and we can now set the WAITING and RELEASED flag to 0.
+  uint8_t key_interrupt_flags;
+  enum chip8_key last_released_key;
+
   // A timer used to track how many milliseconds have passed since the timer had last elapsed.
   // This is a 60Hz timer, meaning that there are 60 cycles per second.
   // After every cycle, this timer should update the delay_timer and sound_timer if necessary.
@@ -263,6 +281,10 @@ static inline void chip8_set_key(struct chip8 *vm, enum chip8_key key) {
 
 static inline void chip8_remove_key(struct chip8 *vm, enum chip8_key key) {
   vm->keyboard_inputs &= ~key;
+
+  //store the last key release for the Fx0A instruction
+  vm->key_interrupt_flags |= CHIP8_KEY_INT_FLAG_RELEASED; //set bit
+  vm->last_released_key = key;
 }
 
 

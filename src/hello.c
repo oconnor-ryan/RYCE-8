@@ -39,12 +39,6 @@ struct app_state {
   Uint64 last_frame_elapsed_millis;
 
    
-  uint8_t use_io_test;
-  struct {
-    Uint64 timer1;
-    Uint64 timer2;
-  };
- 
 };
 
 
@@ -282,9 +276,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 
 
   //complete initializing app state and bind it to SDL
-  state.use_io_test = input == NULL;
-  state.timer1 = 0;
-  state.timer2 = 4000; //so we dont have to wait a full 8 seconds at startup
   state.last_frame_elapsed_millis = SDL_GetTicks();
 
 
@@ -362,26 +353,6 @@ SDL_AppResult SDL_AppIterate(void *appstate)
   uint64_t time_elapsed_millis = SDL_GetTicks();
   uint64_t delta = time_elapsed_millis - state->last_frame_elapsed_millis;
   state->last_frame_elapsed_millis = time_elapsed_millis;
-
-  if(state->use_io_test) {
-    state->timer1 += delta;
-    state->timer2 += delta;
-
-    // every x milliseconds, randomize the pixels in the framebuffer
-    if(state->timer1 > 25) {
-      state->timer1 = 0; //reset timer
-      randomize_fb(state);
-    }
-
-
-    //every 4 seconds, replay the beep sound
-    if(state->timer2 > 8000) {
-      state->timer2 = 0;
-
-      //gives us approx 4 seconds of beep
-      state->vm.sound_timer = 255;
-    }
-  }
 
   
 

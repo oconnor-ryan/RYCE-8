@@ -2,9 +2,32 @@
 A CHIP-8 emulator. Can run most modern CHIP-8 ROMs.
 
 
+## Specification
+I primary followed the technical reference left by Thomas P. Green. 
+
+http://devernay.free.fr/hacks/chip8/C8TECH10.HTM
+
+In his version, there are some quirks that make specific instructions act slightly different from the original COSMAC VIP implementation. For more information about CHIP-8 quirks that appeared in other CHIP-8 implementations, view the web page below:
+
+https://chip8.gulrak.net/
+
+
+
+
+## Test Suite Used
+For easier debugging, I've used a test suite found at:
+
+https://github.com/Timendus/chip8-test-suite
+
+It contains 8 CHIP-8 test ROMs (with 7 being compatible with CHIP-8, and 1 being for SUPER-CHIP8).
+
+I'm listing it here since it was a major help in finding multiple weird bugs I encountered while playing certain ROM games on RyChip8.
+
+
 ## Supported Quirks.
-Since there never was a format specification for CHIP-8, many minor quirks
-and variations sprouted between interpreters. Certain instructions were slightly altered thoughout the years while still claiming to be valid CHIP-8.
+Since there never was a formal specification for CHIP-8, many minor quirks
+and variations sprouted between implementations of CHIP-8. 
+
 
 Below I will list:
   - The instruction with a quirk

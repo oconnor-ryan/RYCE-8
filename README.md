@@ -1,5 +1,10 @@
 # RyChip8
-A CHIP-8 emulator. Can run most modern CHIP-8 ROMs.
+A CHIP-8 emulator. 
+
+Note that this uses a version of CHIP-8 that is similar to
+the SUPER-CHIP specification, but excludes the extended instructions that SUPER-CHIP
+added. This means that all of the original opcodes from the first CHIP-8 interpreter on COSMAC VIP are available, but may have slightly altered. This version of CHIP-8 seems to be the most popular specification for modern CHIP-8 ROMs. This does mean
+that this emulator may not be able to run CHIP-8 programs designed for the COSMAC VIP's CHIP-8 interpreter.
 
 
 ## Specification

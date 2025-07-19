@@ -74,8 +74,7 @@ uint8_t chip8_key_to_num(enum chip8_key key) {
   }
 }
 
-int chip8_init(struct chip8 *vm, FILE *file) {
-
+int chip8_reset(struct chip8 *vm, FILE *file) {
   //set seed for randomness
   srand(time(NULL));
 
@@ -111,6 +110,7 @@ int chip8_init(struct chip8 *vm, FILE *file) {
 
   return has_no_error;
 }
+
 
 
 

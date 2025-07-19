@@ -12,6 +12,7 @@
 #define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#include <SDL3/SDL_dialog.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -33,14 +34,94 @@ static SDL_Renderer *renderer = NULL;
 static SDL_AudioStream *stream = NULL;
 
 
+enum rom_loader_status {
+  ROM_LOADER_STATUS_SUCCESS,
+  ROM_LOADER_STATUS_CANNOT_OPEN_FILE,
+  ROM_LOADER_STATUS_CANNOT_READ_FILE,
+  ROM_LOADER_STATUS_NO_FILE_SELECTED,
+
+};
+
 // stores the state of our GUI application
 struct app_state {
   struct chip8 vm;
   Uint64 last_frame_elapsed_millis;
-
-   
+  enum rom_loader_status loader_status;
 };
 
+
+void load_file(struct app_state *state, const char *filepath) {
+  FILE *file = fopen(filepath, "r");
+
+  //TODO: display an error to the user
+  if(file == NULL) {
+
+    state->loader_status = ROM_LOADER_STATUS_CANNOT_OPEN_FILE;
+    return;
+  }
+
+  //we only want 1 file selected
+  int success = chip8_reset(&state->vm, file);
+
+  if(!success) {
+    fclose(file);
+    state->loader_status = ROM_LOADER_STATUS_CANNOT_READ_FILE;
+    return;
+  }
+
+  state->loader_status = ROM_LOADER_STATUS_SUCCESS;
+
+  fclose(file);
+
+}
+
+// Of type SDL_DialogFileCallback
+void SDLCALL cb_on_file_open(void *userdata, const char * const *filelist, int filter) {
+  struct app_state *state = userdata;
+
+  //an error occurred
+  if(filelist == NULL) {
+    printf("Error opening the file picker UI!");
+    SDL_Log("%s", SDL_GetError());
+    load_file(state, NULL);
+    return;
+  }
+
+  //no file selected
+  if(filelist[0] == NULL) {
+    load_file(state, NULL);
+    return; 
+  }
+
+  //otherwise, filelist is a pointer to a list of char* for filenames
+
+  load_file(state, filelist[0]);
+}
+
+
+void open_file_dialog(struct app_state *state) {
+  //note that this function is async, so we need to use a callback function
+  SDL_ShowOpenFileDialog(cb_on_file_open, (void*) state, window, NULL, 0, NULL, 0);
+
+  /*
+  SDL_PropertiesID props = SDL_CreateProperties(); //zero out all flags
+  SDL_SetStringProperty(props, SDL_PROP_FILE_DIALOG_TITLE_STRING, "Open File");
+  SDL_SetPointerProperty(props, SDL_PROP_FILE_DIALOG_WINDOW_POINTER, window);
+  SDL_SetBooleanProperty(props, SDL_PROP_FILE_DIALOG_MANY_BOOLEAN, 0);
+  SDL_SetStringProperty(props, SDL_PROP_FILE_DIALOG_ACCEPT_STRING, "Open");
+  SDL_SetStringProperty(props, SDL_PROP_FILE_DIALOG_CANCEL_STRING, "Cancel");
+
+
+  SDL_ShowFileDialogWithProperties(
+    SDL_FILEDIALOG_OPENFILE,
+    cb_on_file_open,
+    (void*) state,
+    props
+  );
+
+  SDL_DestroyProperties(props);
+  */
+}
 
 void randomize_fb(struct app_state *state) {
   //Note that rand() returns a value between 0 and (at least) 32767 (or the maximum of a signed 16 bit int).
@@ -213,17 +294,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
   //https://wiki.libsdl.org/SDL3/SDL_AppInit
 
-  //to avoid making this global, we will declare a local static variable.
-  //Static variables are more efficient than heap-allocating, and since we only
-  //need a single instance of app_state, we will safely give its pointer to SDL.
-
-  static struct app_state state;
-
-  
-
-
-  
-
   //set seed for RNG
   srand(time(NULL));
 
@@ -236,6 +306,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 
  // SDL_WindowFlags window_flags = SDL_WINDOW_FULLSCREEN;
   SDL_WindowFlags window_flags = SDL_WINDOW_RESIZABLE;
+
 
   /* Create the window */
   if (!SDL_CreateWindowAndRenderer("RyChip8", 800, 600, window_flags, &window, &renderer)) {
@@ -257,43 +328,36 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     return SDL_APP_FAILURE;
   }
 
+  //to avoid making this global, we will declare a local static variable.
+  //Static variables are more efficient than heap-allocating, and since we only
+  //need a single instance of app_state, we will safely give its pointer to SDL.
+
+  static struct app_state state;
+
+  state.loader_status = ROM_LOADER_STATUS_NO_FILE_SELECTED;
+
 
   if(argc > 2) {
     SDL_Log("You can only insert 0 or 1 arguments in command line!");
     return SDL_APP_FAILURE;
   }
 
-  FILE *input = NULL;
   if(argc == 2) {
-    input = fopen(argv[1], "r");
-    if(input == NULL) {
-      SDL_Log("Cannot open specified file!");
-      return SDL_APP_FAILURE;
-    }
+    load_file(&state, argv[1]);
   }
 
 
 
-
-  //complete initializing app state and bind it to SDL
+  //make sure to run SDL_GetTicks AFTER everything is initialized. This prevents
+  //the Chip8's timers from running until after everything else is loaded.
   state.last_frame_elapsed_millis = SDL_GetTicks();
-
-
-  if(!chip8_init(&state.vm, input)) {
-    SDL_Log("Failed to initialize Chip8 Emulator!");
-    fclose(input);
-
-    return SDL_APP_FAILURE;
-  }
-
-  fclose(input);
-  
 
 
   //when initialized, make SDL keep a pointer to our app state.
   //This pointer will be passed into all of SDL's callback functions, 
   //so we will be able to track program state without global variables.
   *appstate = &state;
+
 
 
 
@@ -316,10 +380,17 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
       enum chip8_key key;
       if(sdl_key_to_chip8_key(&event->key, &key)) {
         chip8_set_key(&state->vm, key);
-      } else if(event->key.scancode == SDL_SCANCODE_ESCAPE) {
+      } 
+      else if(event->key.scancode == SDL_SCANCODE_ESCAPE) {
         return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
+      } 
+      //use SDL3's new SDL3_dialog.h header to display native dialogs for opening
+      //files to load into the emulator.
+      else if(event->key.scancode == SDL_SCANCODE_SPACE) {
+        open_file_dialog(state);
       }
-        //ignore all other keypresses
+      
+      //ignore all other keypresses
 
       break;
     }
@@ -356,15 +427,22 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 
   
 
-  //Update the 60 Hz timer along with the VM's delay_timer and sound_timer registers
-  // 60Hz = every 16 milliseconds
-  chip8_update_timer(&state->vm, delta);
+  //only update Chip8 when ROM is actually loaded 
+  if(state->loader_status == ROM_LOADER_STATUS_SUCCESS) {
+    if(!chip8_process_instruction(&state->vm)) {
+      SDL_Log("Cannot process instruction at address %d", state->vm.ram[state->vm.pc]);
+      return SDL_APP_FAILURE;
+    }
 
-  if(state->vm.sound_timer != 0) {
-    SDL_ResumeAudioStreamDevice(stream);
-  } else {
-    SDL_PauseAudioStreamDevice(stream);
+    chip8_update_timer(&state->vm, delta);
+
+    if(state->vm.sound_timer != 0) {
+      SDL_ResumeAudioStreamDevice(stream);
+    } else {
+      SDL_PauseAudioStreamDevice(stream);
+    }
   }
+  
 
 
   //play audio (once it unpauses)
@@ -405,7 +483,25 @@ SDL_AppResult SDL_AppIterate(void *appstate)
   x = ( (w / scale) - (CHIP8_WIDTH * PIXEL_SIZE)) / 2; //center horizontally
   y = ( (h / scale) - (CHIP8_HEIGHT * PIXEL_SIZE)) / 2; //center veritcally
 
-  draw_chip8(state, x, y);
+  switch(state->loader_status) {
+    case ROM_LOADER_STATUS_SUCCESS: draw_chip8(state, x, y); break;
+    case ROM_LOADER_STATUS_CANNOT_OPEN_FILE: {
+      SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+      SDL_RenderDebugText(renderer, x, y, "Cannot open file!");
+      break;
+    }
+    case ROM_LOADER_STATUS_CANNOT_READ_FILE: {
+      SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+      SDL_RenderDebugText(renderer, x, y, "Cannot read file!");
+      break;
+    }
+    case ROM_LOADER_STATUS_NO_FILE_SELECTED: {
+      SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+      SDL_RenderDebugText(renderer, x, y, "No ROM loaded!");
+      break;
+    }
+  }
+  
 
 
   x = ( (w / scale) - ((SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE + DEBUG_KEY_SPACE_BETWEEN_CHARS) * 16)) / 2; //center horizontally
@@ -415,13 +511,6 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 
   SDL_RenderPresent(renderer);
 
-
-
-  // process chip8
-  if(!chip8_process_instruction(&state->vm)) {
-    SDL_Log("Cannot process instruction at address %d", state->vm.ram[state->vm.pc]);
-    return SDL_APP_FAILURE;
-  }
 
   return SDL_APP_CONTINUE;
 }

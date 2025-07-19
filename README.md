@@ -7,6 +7,13 @@ added. This means that all of the original opcodes from the first CHIP-8 interpr
 that this emulator may not be able to run CHIP-8 programs designed for the COSMAC VIP's CHIP-8 interpreter.
 
 
+## Current Goals
+- Add option to select a ROM to load for the emulator:
+  - https://wiki.libsdl.org/SDL3/SDL_ShowOpenFileDialog
+- Add option to modify what instruction quirks to use within the emulator, allowing the emulator to run more types of CHIP-8 programs that rely on those quirks.
+- Add menu to change key bindings.
+
+
 ## Specification
 I primary followed the technical reference left by Thomas P. Green. 
 
@@ -93,9 +100,3 @@ Below I will list:
 
 
 
-## Current Goals
-- Continue to fix any emulator behaviors.
-- Add option to select a ROM to load for the emulator:
-  - https://wiki.libsdl.org/SDL3/SDL_ShowOpenFileDialog
-- Add option to modify what instruction quirks to use within the emulator, allowing the emulator to run more types of CHIP-8 programs that rely on those quirks.
-- Add menu to change key bindings.

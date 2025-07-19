@@ -1,16 +1,17 @@
 # RyChip8
 A CHIP-8 emulator. 
 
-Note that this uses a version of CHIP-8 that is similar to
-the SUPER-CHIP specification, but excludes the extended instructions that SUPER-CHIP
-added. This means that all of the original opcodes from the first CHIP-8 interpreter on COSMAC VIP are available, but may have slightly altered. This version of CHIP-8 seems to be the most popular specification for modern CHIP-8 ROMs. This does mean
-that this emulator may not be able to run CHIP-8 programs designed for the COSMAC VIP's CHIP-8 interpreter.
-
+Currently, this emulator will only run games that use the original CHIP-8 instruction set and use the "quirks" introduced by CHIP48 and SCHIP 1.1.
 
 ## Current Goals
-- Add option to select a ROM to load for the emulator:
-  - https://wiki.libsdl.org/SDL3/SDL_ShowOpenFileDialog
-- Add option to modify what instruction quirks to use within the emulator, allowing the emulator to run more types of CHIP-8 programs that rely on those quirks.
+- Add support for more Chip8 variations:
+  - The original COSMAC VIP CHIP-8.
+  - SCHIP 1.1 
+  - XO-Chip 
+  - Original CHIP-8 with SCHIP 1.1 quirks (ALREADY SUPPORTED)
+    - This is what many "modern" (anything after the early 1990s) CHIP8 games use.
+    - This is basically SCHIP 1.1 without the new instructions that SCHIP 1.1 introduced
+    - While SCHIP was meant to be fully backwards compatiable with the original CHIP-8 instruction set, it ended up being based on CHIP48 instead, which modified some of the original instructions from COSMAC VIP CHIP-8, making it incompatible with pre-1990s CHIP-8 programs.
 - Add menu to change key bindings.
 
 
@@ -19,9 +20,15 @@ I primary followed the technical reference left by Thomas P. Green.
 
 http://devernay.free.fr/hacks/chip8/C8TECH10.HTM
 
-In his version, there are some quirks that make specific instructions act slightly different from the original COSMAC VIP implementation. For more information about CHIP-8 quirks that appeared in other CHIP-8 implementations, view the web page below:
+In his version, he uses all of the original instructions from the COSMAC VIP CHIP-8. However, some of those instructions were modified to contain "quirks" from the CHIP48 and SCHIP variations. For more information about CHIP-8 quirks that appeared in other CHIP-8 implementations, view the web pages below:
+
+https://github.com/Chromatophore/HP48-Superchip
 
 https://chip8.gulrak.net/
+
+https://johnearnest.github.io/Octo/docs/SuperChip.html
+
+https://chip-8.github.io/extensions/
 
 
 

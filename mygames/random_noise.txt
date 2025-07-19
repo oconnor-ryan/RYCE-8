@@ -1,0 +1,39 @@
+
+
+:begin:
+
+Set V0 = 0 ; this will be our current X.
+Set V1 = 0 ; this will be our current Y.
+
+:while_loop_for_V1:    ; V1 < 32
+  :while_loop_for_V0:  ; V0 < 64
+    Set I = beginning address of :entropy_pool:
+    V2 = RND() & 0xFF ; allows us to address up to 255 bytes of entropy
+
+    I += V2   ; add random offset
+
+    Draw(V0, V1, 8) ; draw the 8 bytes at I on screen at (V0, V1).
+
+    V0 += 8 ; each sprite is 8 pixels wide
+
+    (there's no comparison operator, so I'll do this instead)
+    V2 = 63
+    V2 = V2 - V0   ; VF will be 1 if 63 > V0  (or V0 <= 63)
+    Skip if VF == 0
+    Jump to :while_loop_for_V0:
+
+
+  V0 = 0 
+  V1 += 8 ; 15 is not divisible by 32, so we'll go with 8
+
+  (there's no comparison operator, so I'll do this instead)
+  V2 = 31
+  V2 = V2 - V1   ; VF will be 1 if 31 > V1  (or V1 <= 31)
+  Skip if VF == 0
+  Jump to :while_loop_for_V1:
+
+
+Jump to :begin:
+
+:entropy_pool:
+PRE-GENERATED RANDOM BYTES (300 should work)

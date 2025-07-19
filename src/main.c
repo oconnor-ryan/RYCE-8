@@ -51,6 +51,17 @@ struct app_state {
 
 
 void load_file(struct app_state *state, const char *filepath) {
+  uint8_t already_has_rom = state->loader_status == ROM_LOADER_STATUS_SUCCESS;
+
+  if(filepath == NULL) {
+    //if we canceled out without picking a file, we should not change the loader status
+    //if another ROM was already loaded.
+    if(!already_has_rom) {
+      state->loader_status = ROM_LOADER_STATUS_NO_FILE_SELECTED;
+    }
+    return;
+  }
+
   FILE *file = fopen(filepath, "r");
 
   //TODO: display an error to the user
@@ -102,55 +113,10 @@ void SDLCALL cb_on_file_open(void *userdata, const char * const *filelist, int f
 void open_file_dialog(struct app_state *state) {
   //note that this function is async, so we need to use a callback function
   SDL_ShowOpenFileDialog(cb_on_file_open, (void*) state, window, NULL, 0, NULL, 0);
-
-  /*
-  SDL_PropertiesID props = SDL_CreateProperties(); //zero out all flags
-  SDL_SetStringProperty(props, SDL_PROP_FILE_DIALOG_TITLE_STRING, "Open File");
-  SDL_SetPointerProperty(props, SDL_PROP_FILE_DIALOG_WINDOW_POINTER, window);
-  SDL_SetBooleanProperty(props, SDL_PROP_FILE_DIALOG_MANY_BOOLEAN, 0);
-  SDL_SetStringProperty(props, SDL_PROP_FILE_DIALOG_ACCEPT_STRING, "Open");
-  SDL_SetStringProperty(props, SDL_PROP_FILE_DIALOG_CANCEL_STRING, "Cancel");
-
-
-  SDL_ShowFileDialogWithProperties(
-    SDL_FILEDIALOG_OPENFILE,
-    cb_on_file_open,
-    (void*) state,
-    props
-  );
-
-  SDL_DestroyProperties(props);
-  */
 }
 
-void randomize_fb(struct app_state *state) {
-  //Note that rand() returns a value between 0 and (at least) 32767 (or the maximum of a signed 16 bit int).
-  // However, for my compiler, the range is 0 through 0x7fffffff, which is the max value of a signed 32-bit int.
-  
-  // Note that it does not include negative numbers, so it does not generate a random bit for the most significant bit.
-  // This always leaves 1 column of pixels the same color.
-
-
-  // To allow randomness for all 64 bits, we need to generate random 16-bit integers.
-  // Since 16-bit integers can fit the full range of numbers from 0 to RAND_MAX, we will generate
-  // 4 random 16-bit integers and place them at the appropriate spot within the 64-bit integer.
-
-  for(uint8_t r = 0; r < 32; r++) {
-    state->vm.fb[r] = 0;
-
-    uint16_t *p = (uint16_t*) (state->vm.fb + r);
-    *p = rand();
-    *(p+1) = rand();
-    *(p+2) = rand();
-    *(p+3) = rand();
-
-  }
-}
 
 void draw_chip8(struct app_state *state, int start_x, int start_y) {
-
-  
-
   SDL_FRect rect;
 
 
@@ -184,9 +150,8 @@ void draw_chip8(struct app_state *state, int start_x, int start_y) {
   for(uint8_t r = 0; r < CHIP8_HEIGHT; r++) {
     uint64_t columns = state->vm.fb[r];
 
-    //we shift to left until the set bit is pushed out
-   // for(uint64_t c = 1; 1 ; c <<= 1) {
-    for(uint64_t c = (uint64_t)1 << 63; 1; c >>= 1) {
+    //we shift to right until the set bit is pushed out
+    for(uint64_t c = (uint64_t)1 << 63; c != 0; c >>= 1) {
       //is on
       if(columns & c) {
         SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
@@ -199,9 +164,6 @@ void draw_chip8(struct app_state *state, int start_x, int start_y) {
 
       rect.x += PIXEL_SIZE;
 
-     // if(c & ((uint64_t)1 << 63)) break;
-      if(c & 1) break;
-      
     }
 
     rect.x = start_x;

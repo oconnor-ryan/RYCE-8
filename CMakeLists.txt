@@ -15,11 +15,11 @@ set(CMAKE_BUILD_TYPE "Debug")
 add_subdirectory(vendor/SDL EXCLUDE_FROM_ALL)
 
 # Create your game executable target as usual
-add_executable(hello MACOSX_BUNDLE src/hello.c src/chip8.c)
+add_executable(rychip8 MACOSX_BUNDLE src/main.c src/chip8.c)
 
 #note that this is required for MacOS Cocoa apps. 
 # The file contains properties that allow the app to open files on the user's computer.
-set_target_properties(hello PROPERTIES MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/macos/RyChip8.entitlements")
+set_target_properties(rychip8 PROPERTIES MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/macos/RyChip8.entitlements")
 
 # Link to the actual SDL3 library.
-target_link_libraries(hello PRIVATE SDL3::SDL3)
+target_link_libraries(rychip8 PRIVATE SDL3::SDL3)

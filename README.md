@@ -3,6 +3,29 @@ A CHIP-8 emulator.
 
 Currently, this emulator will only run games that use the original CHIP-8 instruction set and use the "quirks" introduced by CHIP48 and SCHIP 1.1.
 
+
+## Building
+This project relies on the following external build dependencies:
+- CMake >=3.16 
+- Any C compiler that supports C11
+
+It also includes the following external projects as Git submodules:
+- SDL (>=3.2)
+
+When you clone this repository, it is recommended that you also include the previously listed Git submodules using the following command: 
+```
+git clone --recurse-submodules :URL:
+```
+
+After you clone the repository (including submodules), you just need to run the following to build the project:
+```
+cmake -S . -B build
+cmake --build build
+```
+
+The built application will be inside the build folder.
+
+
 ## Current Goals
 - Add support for more Chip8 variations:
   - The original COSMAC VIP CHIP-8.
@@ -30,6 +53,11 @@ https://johnearnest.github.io/Octo/docs/SuperChip.html
 
 https://chip-8.github.io/extensions/
 
+
+## RyChip8 Specifications
+Because there is a lot of "quirks" between different CHIP-8 variations and implementations, I'm listing all of the specifications and instructions that this emulator conforms to:
+
+TODO: Include full list of supported instructions and quirks.
 
 
 

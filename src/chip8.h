@@ -289,12 +289,9 @@ static inline void chip8_remove_key(struct chip8 *vm, enum chip8_key key) {
 
 
 int chip8_reset(struct chip8 *vm, FILE *file);
+int chip8_update(struct chip8 *vm, uint64_t delta_time_millis);
 
 
-int chip8_load_rom(struct chip8 *vm, FILE *file);
-void chip8_update_timer(struct chip8 *vm, uint64_t delta_time_millis);
-
-int chip8_process_instruction(struct chip8 *vm);
 
 
 #endif //CHIP8_H

@@ -74,6 +74,23 @@ uint8_t chip8_key_to_num(enum chip8_key key) {
   }
 }
 
+int chip8_load_rom(struct chip8 *vm, FILE *file) {
+
+  //only read the number of bytes that the Chip8 can hold into RAM. The rest of the 
+  //file is ignored. If the ROM is smaller than the max number of bytes, the ROM
+  //will still load successfully, but the uninitialized half of RAM will hold an undefined
+  //set of bytes.
+
+  const size_t max_bytes = CHIP8_RAM_LIMIT - CHIP8_PROG_START;
+  size_t num_bytes_read = fread(vm->ram + CHIP8_PROG_START, max_bytes, 1, file);
+
+  if(ferror(file)) {
+    return 0;
+  }
+  return 1;
+}
+
+
 int chip8_reset(struct chip8 *vm, FILE *file) {
   //set seed for randomness
   srand(time(NULL));
@@ -113,7 +130,6 @@ int chip8_reset(struct chip8 *vm, FILE *file) {
 
 
 
-
 void chip8_update_timer(struct chip8 *vm, uint64_t delta_time_millis) {
   vm->millis_timer60hz += delta_time_millis;
 
@@ -134,21 +150,7 @@ void chip8_update_timer(struct chip8 *vm, uint64_t delta_time_millis) {
   }
 }
 
-int chip8_load_rom(struct chip8 *vm, FILE *file) {
 
-  //only read the number of bytes that the Chip8 can hold into RAM. The rest of the 
-  //file is ignored. If the ROM is smaller than the max number of bytes, the ROM
-  //will still load successfully, but the uninitialized half of RAM will hold an undefined
-  //set of bytes.
-
-  const size_t max_bytes = CHIP8_RAM_LIMIT - CHIP8_PROG_START;
-  size_t num_bytes_read = fread(vm->ram + CHIP8_PROG_START, max_bytes, 1, file);
-
-  if(ferror(file)) {
-    return 0;
-  }
-  return 1;
-}
 
 
 // Process the instruction. If the instruction is unrecognized, the PC is
@@ -649,4 +651,13 @@ int chip8_process_instruction(struct chip8 *vm) {
   unknown_ins: 
   return 0;
 
+}
+
+int chip8_update(struct chip8 *vm, uint64_t delta) {
+  if(!chip8_process_instruction(vm)) {
+    return 0;
+  }
+
+  chip8_update_timer(vm, delta);
+  return 1;
 }

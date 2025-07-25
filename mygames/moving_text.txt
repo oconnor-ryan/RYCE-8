@@ -1,0 +1,48 @@
+Set V0 = 0
+Set V1 = 16  ; Sprite 1 X-coord
+Set V2 = 24  ; Sprite 2 X-coord
+Set V3 = 32  ; Sprite 3 X-coord
+Set V4 = 48  ; Sprite 4 X-coord
+Set V5 = 12  ; All Sprites Y-coord 
+Set VD = 20  ; delay Timer
+
+; the letters we want to render from the builtin font
+Set V6 = 0xB
+Set V7 = 0xE
+Set V8 = 0xE
+Set V9 = 0xF
+
+
+:Draw: 
+Set I = addr of font sprite V6
+Draw(V1, V5, 5)
+Set I = addr of font sprite V7
+Draw(V2, V5, 5)
+Set I = addr of font sprite V8
+Draw(V3, V5, 5)
+Set I = addr of font sprite V9
+Draw(V4, V5, 5)
+
+Set Delay = VD 
+
+:DelayLoop:
+Set VE = Delay 
+If VE == 0 Skip 1
+goto :DelayLoop:
+
+Clear Screen
+
+VA = -1 (255)
+V1 += VA
+V2 += VA
+V3 += VA
+V4 += VA
+
+V5 += VA ; change Y-coord
+
+goto :Draw:
+
+
+
+
+

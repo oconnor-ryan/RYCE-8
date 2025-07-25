@@ -385,9 +385,15 @@ int chip8_process_instruction(struct chip8 *vm) {
     }
 
     //LD (Bnnn) - Jump to location at nnn + V0
+    //QUIRK - On CHIP-48 and SUPER-CHIP, while the specification states to 
+    //        jump to NNN + V0, there was an unintended change where BXNN actually 
+    //        jumps to XNN + Vx. This is not listed in the original SUPER-CHIP 1.1 reference,
+    //        but this behavior is present in most SUPER-CHIP interpreters.
+    //        Make this quirk configurable.
     case 0xB: {
       uint16_t loc = (((uint16_t)high & 0x0F) << 8) | low;
-      pc = loc + vm->V[0];
+      //pc = loc + vm->V[0];
+      pc = loc + vm->V[high & 0x0F];
       break;
     }
 
@@ -427,45 +433,38 @@ int chip8_process_instruction(struct chip8 *vm) {
       bit (63rd) correspond to X = 0 on the screen and the least significant bit (0th
       bit correspond to X = 63 on screen.
 
-
-      Because of this, each row is drawn "right-to-left". So if Vx asks to 
-      draw at screen coordinate X = 10, it will: 
-      
-      Draw the 0th (LSB) bit at X = 10,
-      Draw the 1st       bit at X = 9,
-      Draw the 2nd       bit at X = 8,
-      ...
-      Draw the 7th (MSB) bit at X = 3.
-
-      So without subtracting by 7 for the framebuffers X index (fbx), 
-      the sprite will be drawn with its upper right corner at (Vx, Vy).
-
-      Because Chip8 expects sprites to be drawn with the upper left corner
-      of the sprite being at (Vx, Vy), we need to subtract fbx by 7.
       */
-      uint8_t fbx = ((CHIP8_WIDTH - 1) - vm->V[x]) - 7;
+
+      //Note: ONLY Initial X and Y coordinates get WRAPPED AROUND.
+      //Make sure to use modulus
+      uint8_t fbx = vm->V[x] % CHIP8_WIDTH;
+      uint8_t fby = vm->V[y] % CHIP8_HEIGHT;
+
+      //when drawing the sprite, you want to CLIP them if they go off-screen,
+      //NOT WRAPAROUND
+
 
       //for each row to draw to
       for(uint8_t i = 0; i < n; i++) {
-        //uint8_t index_fb = n - 1 - i;
 
         //Apply vertical wraparound if sprite overflows offscren.
-        uint8_t fby = (vm->V[y] + i) % (CHIP8_HEIGHT);
+        //uint8_t fby = (vm->V[y] + i) % (CHIP8_HEIGHT);
 
         //grab copy of row
         uint64_t old_row = vm->fb[fby];
 
-        //create mask for bits we are going to draw to. Wrap horizontally.
-        uint64_t mask = rotate_left_64(0xFF,  fbx);
+        //create mask for bits we are going to draw to. 
+        //Dont use bit rotation since we want to perform X-coord clipping on sprite row.
+        uint64_t mask = ((uint64_t)0xFF << 56) >> fbx;
 
         //zero out the bits we dont draw to in old_row.
         old_row &= mask;
 
         //create a empty 64-bit row, get an 8-bit row from our sprite, and
-        //shift our sprite's row into the empty row, wrapping horizontally as needed.
+        //shift our sprite's row into the empty row
         uint8_t sprite_row_data = vm->ram[vm->I + i];
         
-        uint64_t sprite_row = rotate_left_64(sprite_row_data, fbx);
+        uint64_t sprite_row = ((uint64_t)sprite_row_data << 56) >> fbx;
 
 
         // How do we know if collision occured?
@@ -487,6 +486,12 @@ int chip8_process_instruction(struct chip8 *vm) {
 
         //draw row to framebuffer
         vm->fb[fby] ^= sprite_row;
+
+
+        //implements clipping behavior of sprites for Y where the X and Y inside the DXYN instruction
+        //wrap around, but the subsequent rows of the sprite get clipped off if going offscreen
+        fby++;
+        if(fby >= CHIP8_HEIGHT) break;
 
       }
 

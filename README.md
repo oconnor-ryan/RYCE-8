@@ -28,7 +28,7 @@ The built application will be inside the build folder.
 
 ## Current Goals
 - Add support for more Chip8 variations:
-  - The original COSMAC VIP CHIP-8.
+  - The original COSMAC VIP CHIP-8 (NOW SUPPORTED)
   - SCHIP 1.1 
   - XO-Chip 
   - Original CHIP-8 with SCHIP 1.1 quirks (ALREADY SUPPORTED)

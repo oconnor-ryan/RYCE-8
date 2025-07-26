@@ -4,6 +4,7 @@
 #include <SDL3/SDL.h>
 #include "chip8.h"
 
+
 enum chip8_sdl_loader_status {
   CHIP8_LOADER_STATUS_SUCCESS,
   CHIP8_LOADER_STATUS_CANNOT_OPEN_FILE,
@@ -14,7 +15,9 @@ enum chip8_sdl_loader_status {
 
 // stores the state of our GUI application
 struct chip8_sdl_app_state {
-  struct chip8 vm;
+
+  struct chip8 chip;
+
   Uint64 last_frame_elapsed_millis;
   enum chip8_sdl_loader_status loader_status;
 

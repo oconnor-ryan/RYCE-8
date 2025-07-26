@@ -48,7 +48,7 @@ void chip8_sdl_load_file(struct chip8_sdl_app_state *state, const char *filepath
   }
 
   //we only want 1 file selected
-  int success = chip8_reset(&state->vm, file);
+  int success = chip8_wrapper_reset(&state->chip, file);
 
   if(!success) {
     fclose(file);
@@ -95,13 +95,14 @@ void chip8_sdl_open_file_dialog(struct chip8_sdl_app_state *state) {
 void chip8_sdl_draw_chip8(struct chip8_sdl_app_state *state, int start_x, int start_y) {
   SDL_FRect rect;
 
+  //TODO: Add support for rendering 128x64 resolution
 
   //define borders of the rectangle where our emulator renders pixels. Make sure
   //that pixels stay within the frame by making the frame slightly larger than where the pixels are rendered.
   rect.x = start_x - 1;
   rect.y = start_y - 1;
-  rect.h = 2 + CHIP8_SDL_PIXEL_SIZE * CHIP8_HEIGHT;
-  rect.w = 2 + CHIP8_SDL_PIXEL_SIZE * CHIP8_WIDTH;
+  rect.h = 2 + CHIP8_SDL_PIXEL_SIZE * state->chip.core.fb_height;
+  rect.w = 2 + CHIP8_SDL_PIXEL_SIZE * state->chip.core.fb_width;
 
 
   //render the frame holding our pixels
@@ -123,8 +124,8 @@ void chip8_sdl_draw_chip8(struct chip8_sdl_app_state *state, int start_x, int st
   rect.y = start_y;
 
   //32 rows, 64 columns
-  for(uint8_t r = 0; r < CHIP8_HEIGHT; r++) {
-    uint64_t columns = state->vm.fb[r];
+  for(uint8_t r = 0; r < state->chip.core.fb_height; r++) {
+    uint64_t columns = state->chip.core.fb[r];
 
     //we shift to right until the set bit is pushed out
     for(uint64_t c = (uint64_t)1 << 63; c != 0; c >>= 1) {
@@ -153,7 +154,7 @@ void chip8_sdl_draw_debug_keys(struct chip8_sdl_app_state *state, int start_x, i
 
   int x = start_x;
   for(uint16_t i = 1, k = 0; k < 16; i <<= 1, k++) {
-    if(state->vm.keyboard_inputs & i) {
+    if(state->chip.core.keyboard_inputs & i) {
       SDL_SetRenderDrawColor(state->renderer, 0, 255, 0, 255);
     } else {
       SDL_SetRenderDrawColor(state->renderer, 0, 0, 255, 255);
@@ -242,6 +243,10 @@ void chip8_sdl_app_init(void **appstate, SDL_Window *window, SDL_Renderer *rende
 
   state.loader_status = CHIP8_LOADER_STATUS_NO_FILE_SELECTED;
 
+  chip8_wrapper_init(&state.chip, CHIP8_VARIANT_SUPER);
+  //chip8_wrapper_init(&state.chip, CHIP8_VARIANT_VIP);
+
+
 
 
   //make sure to run SDL_GetTicks AFTER everything is initialized. This prevents
@@ -271,7 +276,7 @@ SDL_AppResult chip8_sdl_app_event(void *appstate, SDL_Event *event) {
     case SDL_EVENT_KEY_DOWN: {
       enum chip8_key key;
       if(chip8_sdl_key_to_chip8_key(&event->key, &key)) {
-        chip8_set_key(&state->vm, key);
+        chip8_set_key(&state->chip.core, key);
       } 
       else if(event->key.scancode == SDL_SCANCODE_ESCAPE) {
         return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
@@ -290,7 +295,7 @@ SDL_AppResult chip8_sdl_app_event(void *appstate, SDL_Event *event) {
     case SDL_EVENT_KEY_UP: {
       enum chip8_key key;
       if(chip8_sdl_key_to_chip8_key(&event->key, &key)) {
-        chip8_remove_key(&state->vm, key);
+        chip8_remove_key(&state->chip.core, key);
       }
 
       //ignore all other keypresses
@@ -320,12 +325,12 @@ SDL_AppResult chip8_sdl_app_iterate(void *appstate) {
 
   //only update Chip8 when ROM is actually loaded 
   if(state->loader_status == CHIP8_LOADER_STATUS_SUCCESS) {
-    if(!chip8_update(&state->vm, delta)) {
-      SDL_Log("Cannot process instruction at address %d", state->vm.ram[state->vm.pc]);
+    if(!chip8_wrapper_update(&state->chip, delta)) {
+      SDL_Log("Cannot process instruction at address %d", state->chip.core.ram[state->chip.core.pc]);
       return SDL_APP_FAILURE;
     }
 
-    if(state->vm.sound_timer != 0) {
+    if(state->chip.core.sound_timer != 0) {
       SDL_ResumeAudioStreamDevice(state->stream);
     } else {
       SDL_PauseAudioStreamDevice(state->stream);
@@ -369,8 +374,8 @@ SDL_AppResult chip8_sdl_app_iterate(void *appstate) {
   SDL_RenderDebugText(state->renderer, x, y, message);
 
   // draw chip8 framebuffer
-  x = ( (w / scale) - (CHIP8_WIDTH * CHIP8_SDL_PIXEL_SIZE)) / 2; //center horizontally
-  y = ( (h / scale) - (CHIP8_HEIGHT * CHIP8_SDL_PIXEL_SIZE)) / 2; //center veritcally
+  x = ( (w / scale) - (state->chip.core.fb_width * CHIP8_SDL_PIXEL_SIZE)) / 2; //center horizontally
+  y = ( (h / scale) - (state->chip.core.fb_height * CHIP8_SDL_PIXEL_SIZE)) / 2; //center veritcally
 
   switch(state->loader_status) {
     case CHIP8_LOADER_STATUS_SUCCESS: chip8_sdl_draw_chip8(state, x, y); break;

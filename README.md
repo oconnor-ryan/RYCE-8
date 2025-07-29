@@ -29,7 +29,7 @@ The built application will be inside the build folder.
 ## Current Goals
 - Add support for more Chip8 variations:
   - The original COSMAC VIP CHIP-8 (NOW SUPPORTED)
-  - SCHIP 1.1 
+  - SCHIP 1.1 (NOW SUPPORTED).
   - XO-Chip 
   - Original CHIP-8 with SCHIP 1.1 quirks (ALREADY SUPPORTED)
     - This is what many "modern" (anything after the early 1990s) CHIP8 games use.

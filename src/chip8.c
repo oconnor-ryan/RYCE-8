@@ -21,17 +21,23 @@ void chip8_wrapper_init(struct chip8 *vm, enum chip8_emu_type type) {
   }
 }
 
-int chip8_wrapper_update(struct chip8 *vm, uint64_t delta_millis) {
+int chip8_wrapper_process_instruction(struct chip8 *vm) {
   switch(vm->emu) {
-    case CHIP8_VARIANT_VIP: return vip8_chip8_update(&vm->vm.vip, delta_millis); break;
-    case CHIP8_VARIANT_SUPER: return schip8_update(&vm->vm.super, delta_millis); break;
+    case CHIP8_VARIANT_VIP: return vip_chip8_process_instruction(&vm->vm.vip); break;
+    case CHIP8_VARIANT_SUPER: return schip8_process_instruction(&vm->vm.super); break;
     case CHIP8_VARIANT_XO: assert(0); return 0;
   }
 }
 
+void chip8_wrapper_update_timer(struct chip8 *vm, uint64_t delta_millis) {
+  chip8_update_timer(&vm->core, delta_millis);
+}
+
+
+
 int chip8_wrapper_reset(struct chip8 *vm, FILE *file) {
   switch(vm->emu) {
-    case CHIP8_VARIANT_VIP: return vip8_chip8_reset(&vm->vm.vip, file); break;
+    case CHIP8_VARIANT_VIP: return vip_chip8_reset(&vm->vm.vip, file); break;
     case CHIP8_VARIANT_SUPER: return schip8_reset(&vm->vm.super, file); break;
     case CHIP8_VARIANT_XO: assert(0); return 0;
   }

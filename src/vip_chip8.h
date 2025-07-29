@@ -14,8 +14,8 @@ struct vip_chip8 {
 
 
 void vip_chip8_init(struct vip_chip8 *vm);
-int vip8_chip8_update(struct vip_chip8 *vm, uint64_t delta_millis);
-int vip8_chip8_reset(struct vip_chip8 *vm, FILE *file);
+int vip_chip8_process_instruction(struct vip_chip8 *vm);
+int vip_chip8_reset(struct vip_chip8 *vm, FILE *file);
 
 #endif// VIP_CHIP8_H
 

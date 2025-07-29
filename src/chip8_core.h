@@ -5,6 +5,10 @@
 #include <stdio.h>
 
 
+//the original display resolution of the CHIP8 VM
+#define CHIP8_WIDTH 64
+#define CHIP8_HEIGHT 32
+
 //all Chip8 programs are loaded at address 512 in RAM
 #define CHIP8_PROG_START 512
 
@@ -22,12 +26,13 @@
 // Note that this only contains quirks that I want to support, so the list of quirks
 // may not be exhausive.
 enum chip8_quirk {
-   CHIP8_QUIRK_SHIFT_VY            = 1 << 0, // if true, perform Vx = Vy << 1, otherwise Vx == Vx << 1
-   CHIP8_QUIRK_INCREMENT_I         = 1 << 1, // if true, Fx55 and Fx65 will increment I by x + 1, otherwise it is left unchanged
-   CHIP8_QUIRK_RESET_VF            = 1 << 2, // if true, reset VF in bitwise AND, OR, and XOR operations
-   CHIP8_QUIRK_CLR_SCN_ON_LORES    = 1 << 3, // if true, clear the screen upon switching to lores on SCHIP, otherwise leave artifacts behind.
-   CHIP8_QUIRK_WRAP_SPRITE         = 1 << 4, // if true, entire sprite wraps around instead of clipping at the right and bottom borders
-   CHIP8_QUIRK_BXNN                = 1 << 5, // if true, BxNN - Jump to xNN + Vx, otherwise BNNN - Jump to V0 + NNN
+  CHIP8_QUIRK_SHIFT_VY                   = 1 << 0, // if true, perform Vx = Vy << 1, otherwise Vx == Vx << 1
+  CHIP8_QUIRK_INCREMENT_I                = 1 << 1, // if true, Fx55 and Fx65 will increment I by x + 1, otherwise it is left unchanged
+  CHIP8_QUIRK_RESET_VF                   = 1 << 2, // if true, reset VF in bitwise AND, OR, and XOR operations
+  CHIP8_QUIRK_CLR_SCN_ON_LORES           = 1 << 3, // if true, clear the screen upon switching to lores on SCHIP, otherwise leave artifacts behind.
+  CHIP8_QUIRK_WRAP_SPRITE                = 1 << 4, // if true, entire sprite wraps around instead of clipping at the right and bottom borders
+  CHIP8_QUIRK_BXNN                       = 1 << 5, // if true, BxNN - Jump to xNN + Vx, otherwise BNNN - Jump to V0 + NNN
+  CHIP8_QUIRK_HALF_PIXEL_SCROLL_LOW_RES  = 1 << 6, // if true, each pixel in lores is a 2x2 physical pixel, and when scrolling down, it will scroll 1 phyiscal pixel instead of the currently selected pixel size.
 };
 
 
@@ -112,9 +117,6 @@ struct chip8_core {
 
   /* Output */
   uint64_t *fb;
-  uint8_t fb_width;
-  uint8_t fb_height;
-
   uint16_t fb_size;
 
   // Misc
@@ -154,6 +156,7 @@ static inline void chip8_remove_key(struct chip8_core *vm, enum chip8_key key) {
   vm->last_released_key = key;
 }
 
+void chip8_draw_64x32(uint64_t *fb, uint8_t *V, uint16_t I, uint8_t *ram, uint8_t high, uint8_t low);
 
 int chip8_process_instruction(struct chip8_core *core);
 void chip8_update_timer(struct chip8_core *vm, uint64_t delta_time_millis);

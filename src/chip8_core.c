@@ -5,6 +5,10 @@
 #include <assert.h>
 #include <time.h>
 
+
+
+
+
 // Font Data for the letters A-F and digits 0-9
 /*
 "0"	Binary	Hex
@@ -507,9 +511,7 @@ static inline int chip8_ins_C(struct chip8_core *vm, uint8_t high, uint8_t low) 
   return 1;
 }
 
-//DRW (Dxyn) - Draw n-byte sprite starting at memory location I at (Vx, Vy), 
-//set VF = 1 if collision with another 
-static inline int chip8_ins_D(struct chip8_core *vm, uint8_t high, uint8_t low) {
+void chip8_draw_64x32(uint64_t *fb, uint8_t *V, uint16_t I, uint8_t *ram, uint8_t high, uint8_t low) {
   uint8_t x = high & 0x0F;
   uint8_t y = low >> 4;
   uint8_t n = low & 0x0F;
@@ -539,8 +541,8 @@ static inline int chip8_ins_D(struct chip8_core *vm, uint8_t high, uint8_t low) 
 
   //Note: ONLY Initial X and Y coordinates get WRAPPED AROUND.
   //Make sure to use modulus
-  uint8_t fbx = vm->V[x] % vm->fb_width;
-  uint8_t fby = vm->V[y] % vm->fb_height;
+  uint8_t fbx = V[x] % CHIP8_WIDTH;
+  uint8_t fby = V[y] % CHIP8_HEIGHT;
 
   //when drawing the sprite, you want to CLIP them if they go off-screen,
   //NOT WRAPAROUND
@@ -553,7 +555,7 @@ static inline int chip8_ins_D(struct chip8_core *vm, uint8_t high, uint8_t low) 
     //uint8_t fby = (vm->V[y] + i) % (CHIP8_HEIGHT);
 
     //grab copy of row
-    uint64_t old_row = vm->fb[fby];
+    uint64_t old_row = fb[fby];
 
     //create mask for bits we are going to draw to. 
     //Dont use bit rotation since we want to perform X-coord clipping on sprite row.
@@ -564,7 +566,7 @@ static inline int chip8_ins_D(struct chip8_core *vm, uint8_t high, uint8_t low) 
 
     //create a empty 64-bit row, get an 8-bit row from our sprite, and
     //shift our sprite's row into the empty row
-    uint8_t sprite_row_data = vm->ram[vm->I + i];
+    uint8_t sprite_row_data = ram[I + i];
     
     uint64_t sprite_row = ((uint64_t)sprite_row_data << 56) >> fbx;
 
@@ -587,19 +589,25 @@ static inline int chip8_ins_D(struct chip8_core *vm, uint8_t high, uint8_t low) 
 
 
     //draw row to framebuffer
-    vm->fb[fby] ^= sprite_row;
+    fb[fby] ^= sprite_row;
 
 
     //implements clipping behavior of sprites for Y where the X and Y inside the DXYN instruction
     //wrap around, but the subsequent rows of the sprite get clipped off if going offscreen
     fby++;
-    if(fby >= vm->fb_height) break;
+    if(fby >= CHIP8_HEIGHT) break;
 
   }
 
   //remember that V MUST BE 0 or 1, it cannot be any other value
-  vm->V[15] = collision ? 1 : 0;
+  V[15] = collision ? 1 : 0;
 
+}
+
+//DRW (Dxyn) - Draw n-byte sprite starting at memory location I at (Vx, Vy), 
+//set VF = 1 if collision with another 
+static inline int chip8_ins_D(struct chip8_core *vm, uint8_t high, uint8_t low) {
+  chip8_draw_64x32(vm->fb, vm->V, vm->I, vm->ram, high, low);
   return 1;
 }
 
@@ -646,6 +654,10 @@ static inline int chip8_ins_F(struct chip8_core *vm, uint8_t high, uint8_t low) 
       //if we are not waiting for keyboard yet, we are now.
       if(!wait_for_keyboard) {
         vm->key_interrupt_flags |= CHIP8_KEY_INT_FLAG_WAITING;
+
+        //since we immediately increment by 2 before processing a instruction, 
+        //we need to jump back to process this instruction again.
+        vm->pc -= 2;
 
         //set released flag to 0 so that we can wait until the next
         //key release

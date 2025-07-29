@@ -19,6 +19,8 @@
 #include <limits.h>
 
 #include "chip8_sdl_connector.h"
+#include "chip8_core.h"
+#include "schip8.h"
 
 
 #define CHIP8_SDL_PIXEL_SIZE 2
@@ -92,7 +94,7 @@ void chip8_sdl_open_file_dialog(struct chip8_sdl_app_state *state) {
 }
 
 
-void chip8_sdl_draw_chip8(struct chip8_sdl_app_state *state, int start_x, int start_y) {
+void chip8_sdl_draw_vip_chip8(struct chip8_sdl_app_state *state, int start_x, int start_y) {
   SDL_FRect rect;
 
   //TODO: Add support for rendering 128x64 resolution
@@ -101,8 +103,8 @@ void chip8_sdl_draw_chip8(struct chip8_sdl_app_state *state, int start_x, int st
   //that pixels stay within the frame by making the frame slightly larger than where the pixels are rendered.
   rect.x = start_x - 1;
   rect.y = start_y - 1;
-  rect.h = 2 + CHIP8_SDL_PIXEL_SIZE * state->chip.core.fb_height;
-  rect.w = 2 + CHIP8_SDL_PIXEL_SIZE * state->chip.core.fb_width;
+  rect.h = 2 + CHIP8_SDL_PIXEL_SIZE * CHIP8_HEIGHT;
+  rect.w = 2 + CHIP8_SDL_PIXEL_SIZE * CHIP8_WIDTH;
 
 
   //render the frame holding our pixels
@@ -124,7 +126,7 @@ void chip8_sdl_draw_chip8(struct chip8_sdl_app_state *state, int start_x, int st
   rect.y = start_y;
 
   //32 rows, 64 columns
-  for(uint8_t r = 0; r < state->chip.core.fb_height; r++) {
+  for(uint8_t r = 0; r < CHIP8_HEIGHT; r++) {
     uint64_t columns = state->chip.core.fb[r];
 
     //we shift to right until the set bit is pushed out
@@ -147,6 +149,87 @@ void chip8_sdl_draw_chip8(struct chip8_sdl_app_state *state, int start_x, int st
     rect.y += CHIP8_SDL_PIXEL_SIZE;
   }
 
+}
+
+void chip8_sdl_draw_schip8(struct chip8_sdl_app_state *state, int start_x, int start_y) {
+  SDL_FRect rect;
+
+  const uint8_t pixel_size = CHIP8_SDL_PIXEL_SIZE/2;
+
+  //define borders of the rectangle where our emulator renders pixels. Make sure
+  //that pixels stay within the frame by making the frame slightly larger than where the pixels are rendered.
+  rect.x = start_x - 1;
+  rect.y = start_y - 1;
+  rect.h = 2 + pixel_size * CHIP8_HEIGHT*2;
+  rect.w = 2 + pixel_size * CHIP8_WIDTH*2;
+
+
+  //render the frame holding our pixels
+  SDL_SetRenderDrawColor(state->renderer, 0, 0, 255, 255);
+
+
+  //SDL_RenderDrawRectF()
+  //Watch out, SDL3 changes many functions within SDL2, including SDL_RenderDrawRectF().
+  // Since most tutorials are in SDL2, make sure to double check the SDL3 docs when using
+  // an outdated tutorial.
+
+  //Note that the rectangle outline is 1 pixel thick
+  SDL_RenderRect(state->renderer, &rect);
+
+
+  rect.h = pixel_size;
+  rect.w = pixel_size;
+  rect.x = start_x;
+  rect.y = start_y;
+
+  //64 rows, 128 columns
+  for(uint8_t i = 0; i < 64; i++) {
+    uint64_t column_left = state->chip.vm.super.fb.x128_64[i].msb;
+    uint64_t column_right = state->chip.vm.super.fb.x128_64[i].lsb;
+
+    //we shift to right until the set bit is pushed out
+    for(uint64_t c = (uint64_t)1 << 63; c != 0; c >>= 1) {
+      //is on
+      if(column_left & c) {
+        SDL_SetRenderDrawColor(state->renderer, 0, 255, 0, 255);
+      } else {
+        SDL_SetRenderDrawColor(state->renderer, 0, 0, 0, 255);
+      }
+
+
+      SDL_RenderFillRect(state->renderer, &rect);
+
+      rect.x += pixel_size;
+
+    }
+
+    for(uint64_t c = (uint64_t)1 << 63; c != 0; c >>= 1) {
+      //is on
+      if(column_right & c) {
+        SDL_SetRenderDrawColor(state->renderer, 0, 255, 0, 255);
+      } else {
+        SDL_SetRenderDrawColor(state->renderer, 0, 0, 0, 255);
+      }
+
+
+      SDL_RenderFillRect(state->renderer, &rect);
+
+      rect.x += pixel_size;
+
+    }
+
+    rect.x = start_x;
+    rect.y += pixel_size;
+  }
+
+}
+
+void chip8_sdl_draw_chip8(struct chip8_sdl_app_state *state, int start_x, int start_y) {
+  switch(state->chip.emu) {
+    case CHIP8_VARIANT_VIP: chip8_sdl_draw_vip_chip8(state, start_x, start_y); break;
+    case CHIP8_VARIANT_SUPER: chip8_sdl_draw_schip8(state, start_x, start_y); break;
+    case CHIP8_VARIANT_XO: break;
+  }
 }
 
 void chip8_sdl_draw_debug_keys(struct chip8_sdl_app_state *state, int start_x, int start_y) {
@@ -325,10 +408,16 @@ SDL_AppResult chip8_sdl_app_iterate(void *appstate) {
 
   //only update Chip8 when ROM is actually loaded 
   if(state->loader_status == CHIP8_LOADER_STATUS_SUCCESS) {
-    if(!chip8_wrapper_update(&state->chip, delta)) {
-      SDL_Log("Cannot process instruction at address %d", state->chip.core.ram[state->chip.core.pc]);
-      return SDL_APP_FAILURE;
+
+    for(uint8_t num_times = 0; num_times < 3; num_times++) {
+      if(!chip8_wrapper_process_instruction(&state->chip)) {
+        SDL_Log("Cannot process instruction at address %d", state->chip.core.ram[state->chip.core.pc]);
+        return SDL_APP_FAILURE;
+      }
     }
+
+    chip8_wrapper_update_timer(&state->chip, delta);
+    
 
     if(state->chip.core.sound_timer != 0) {
       SDL_ResumeAudioStreamDevice(state->stream);
@@ -374,8 +463,8 @@ SDL_AppResult chip8_sdl_app_iterate(void *appstate) {
   SDL_RenderDebugText(state->renderer, x, y, message);
 
   // draw chip8 framebuffer
-  x = ( (w / scale) - (state->chip.core.fb_width * CHIP8_SDL_PIXEL_SIZE)) / 2; //center horizontally
-  y = ( (h / scale) - (state->chip.core.fb_height * CHIP8_SDL_PIXEL_SIZE)) / 2; //center veritcally
+  x = ( (w / scale) - (CHIP8_WIDTH * CHIP8_SDL_PIXEL_SIZE)) / 2; //center horizontally
+  y = ( (h / scale) - (CHIP8_HEIGHT * CHIP8_SDL_PIXEL_SIZE)) / 2; //center veritcally
 
   switch(state->loader_status) {
     case CHIP8_LOADER_STATUS_SUCCESS: chip8_sdl_draw_chip8(state, x, y); break;

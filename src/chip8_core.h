@@ -14,6 +14,8 @@
 
 #define CHIP8_HEX_FONT_START 0
 #define CHIP8_HEX_FONT_SIZE 5
+
+//store stack at end of 512-byte section
 #define CHIP8_STACK_START 480 //enough to store max of 16 16-bit addresses, which is the max stack size of XO-CHIP and SCHIP8.
 
 

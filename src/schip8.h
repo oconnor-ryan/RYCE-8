@@ -4,11 +4,15 @@
 #include "chip8_core.h"
 #include "util.h"
 
+#define SCHIP_LARGE_FONT_LOC CHIP8_HEX_FONT_START + sizeof(FONT_DATA_HEX)
+
 enum schip_display_res {
   SCHIP_DISPLAY_HIRES,
   SCHIP_DISPLAY_LORES,
 };
 
+
+extern const uint8_t SCHIP_HEX_FONT[10*16];
 
 
 struct schip8 {

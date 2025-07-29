@@ -24,8 +24,8 @@ struct uint128 uint128_left_shift(struct uint128 val, uint8_t shift_by) {
     res.lsb <<= shift_by;
     res.msb <<= shift_by;
 
-    //insert bits shifted out of lsb into msb
-    res.msb |= bits_going_into_msb;
+    //insert bits shifted out of LSB into least significant bits of MSB
+    res.msb |= bits_going_into_msb >> (64 - shift_by);
   }
 
   return res;

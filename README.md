@@ -1,7 +1,7 @@
 # RyChip8
-A CHIP-8 emulator. 
-
-Currently, this emulator will only run games that use the original CHIP-8 instruction set and use the "quirks" introduced by CHIP48 and SCHIP 1.1.
+A CHIP-8 emulator that primarily supports the original CHIP-8 specification
+for the COSMAC VIP computer, the SUPER-CHIP 1.1 specification, and the
+XO-CHIP specification from John Earnest.
 
 
 ## Building
@@ -31,19 +31,27 @@ The built application will be inside the build folder.
   - The original COSMAC VIP CHIP-8 (NOW SUPPORTED)
   - SCHIP 1.1 (NOW SUPPORTED).
   - XO-Chip 
-  - Original CHIP-8 with SCHIP 1.1 quirks (ALREADY SUPPORTED)
-    - This is what many "modern" (anything after the early 1990s) CHIP8 games use.
-    - This is basically SCHIP 1.1 without the new instructions that SCHIP 1.1 introduced
-    - While SCHIP was meant to be fully backwards compatiable with the original CHIP-8 instruction set, it ended up being based on CHIP48 instead, which modified some of the original instructions from COSMAC VIP CHIP-8, making it incompatible with pre-1990s CHIP-8 programs.
-- Add menu to change key bindings.
+- Add a GUI that allows users to...
+  - Switch between using the COSMAC VIP CHIP-8, SCHIP 1.1, and XO-CHIP emulators.
+  - Individually toggle all of the supported CHIP-8 quirks for improved compatibility.
+  - Change key bindings
+  - Change the color of displayed pixels in emulator.
 
 
 ## Specification
-I primary followed the technical reference left by Thomas P. Green. 
+For SCHIP 1.1, I primarily used the following 2 documents
+http://devernay.free.fr/hacks/chip8/schip.txt
 
 http://devernay.free.fr/hacks/chip8/C8TECH10.HTM
 
-In his version, he uses all of the original instructions from the COSMAC VIP CHIP-8. However, some of those instructions were modified to contain "quirks" from the CHIP48 and SCHIP variations. For more information about CHIP-8 quirks that appeared in other CHIP-8 implementations, view the web pages below:
+Note that the 2nd source states that it's for the original CHIP-8, but that
+is only partially correct. All of the instructions are from the original 
+CHIP-8 specification, but they have been altered with SUPER-CHIP8 quirks.
+
+For more information about CHIP-8 quirks as well as the many
+extensions for CHIP-8, view the web pages below:
+
+https://github.com/mattmikolay/chip-8/wiki/CHIP%E2%80%908-Extensions-Reference#super-chip-erik-bryntse-1991
 
 https://github.com/Chromatophore/HP48-Superchip
 

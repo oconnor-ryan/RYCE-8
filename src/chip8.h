@@ -11,6 +11,11 @@ enum chip8_emu_type {
   CHIP8_VARIANT_XO,
 };
 
+struct chip8_init {
+  char *rom_file;
+  enum chip8_emu_type type;
+};
+
 struct chip8 {
   enum chip8_emu_type emu;
   struct chip8_core core;

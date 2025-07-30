@@ -1,8 +1,12 @@
 # RyChip8
 A CHIP-8 emulator that primarily supports the original CHIP-8 specification
 for the COSMAC VIP computer, the SUPER-CHIP 1.1 specification, and the
-XO-CHIP specification from John Earnest.
+XO-CHIP specification.
 
+## Supported Platforms
+This has been primary tested on MacOS, though I did not include any compiler-specific
+or platform-specific code, and SDL is a cross-platform library, so I assume this
+will work on Linux and Windows.
 
 ## Building
 This project relies on the following external build dependencies:
@@ -25,121 +29,153 @@ cmake --build build
 
 The built application will be inside the build folder.
 
+## Usage
+`rychip8 --type <VIP | SUPER | XO> <ROM_FILE_PATH>`
+
+After generating the executable, you are required to provide the following 
+command line arguments:
+
+* `--type` - Select which CHIP-8 variant to use. The supported types include:
+  * VIP - The original CHIP-8 specification for the COSMAC VIP computers by Joseph Weisbecker.
+  * SUPER - The SUPER-CHIP 1.1 specification by Erik Bryntse.
+  * XO - The XO-CHIP specification by John Earnest
+
+* `<ROM_FILE_PATH>` - The file path of the CHIP-8 ROM you want to run.
+
+
 
 ## Current Goals
 - Add support for more Chip8 variations:
   - The original COSMAC VIP CHIP-8 (NOW SUPPORTED)
   - SCHIP 1.1 (NOW SUPPORTED).
   - XO-Chip 
+
+- Add command line options to configure the emulator...
+  - Toggle all supported quirks.
+  - Include a `man` page or a --help option to document the command line options.
+  - Change the color of the displayed colors.
+
+### Quality of Life Goals
+> Note that these features would be great for the users of this emulator, but since
+> the focus of this project is emulation and not user experience, these features
+> are low priority and will likely not be implemented.
+
 - Add a GUI that allows users to...
   - Switch between using the COSMAC VIP CHIP-8, SCHIP 1.1, and XO-CHIP emulators.
   - Individually toggle all of the supported CHIP-8 quirks for improved compatibility.
   - Change key bindings
   - Change the color of displayed pixels in emulator.
 
+## Supported Quirks
+CHIP-8 has had many extensions over the years, many of which coming with their
+own quirks that break compatability with the original specification. In addition,
+many CHIP-8 implementations and games expect specific quirks that will not work
+on all emulators.
 
-## Specification
-For SCHIP 1.1, I primarily used the following 2 documents
-http://devernay.free.fr/hacks/chip8/schip.txt
+Here's the list of all configurable quirks supported by this emulator:
 
-http://devernay.free.fr/hacks/chip8/C8TECH10.HTM
+- Bit shift instructions shift `Vy` into `Vx`
+  - Affects
+  - If enabled, this quirk will force bit shift operations to shift `Vy` into `Vx`
+    - `Vx = Vy << 1`
+    - `Vx = Vy >> 1`
+  - If disabled, this quirk will shift `Vx` by `1` and store the result in `Vx`.
+    - `Vx = Vx << 1`
+    - `Vx = Vx >> 1`
 
-Note that the 2nd source states that it's for the original CHIP-8, but that
-is only partially correct. All of the instructions are from the original 
-CHIP-8 specification, but they have been altered with SUPER-CHIP8 quirks.
+- Increment I register
+  - If enabled, Fx55 and Fx65 will increment `I` by `x + 1`
+  - If disabled, the value of `I` will not change
 
-For more information about CHIP-8 quirks as well as the many
-extensions for CHIP-8, view the web pages below:
+- Reset `VF` On Bitwise Operations
+  - If enabled, `VF` is set to 0 for the AND, OR, and XOR instructions
+  - If disabled, `VF` is left unchanged by the AND, OR, and XOR instructions
 
-https://github.com/mattmikolay/chip-8/wiki/CHIP%E2%80%908-Extensions-Reference#super-chip-erik-bryntse-1991
+- Clear Screen When Switching Resolution
+  - If enabled, the screen is cleared when switching from low resolution mode (64x32) to high resolution mode (128x64) and vise-versa.
+  - If disabled, screen is not cleared when changing resolution, leading to artifacts on screen.
 
-https://github.com/Chromatophore/HP48-Superchip
+- Sprite Wrap On All Sides
+  - If enabled, sprites will wrap when it moves into any of the 4 sides of the screen.
+  - If disabled, sprites will clip when reaching the right or bottom side of screen. If it reaches the top or left side of the screen, the ENTIRE sprite's position
+  will wrap.
 
-https://chip8.gulrak.net/
+- BXNN
+  - If enabled, the BXNN instruction jumps the program counter to `XNN + Vx`
+  - If disabled, the BNNN instruction jumps the program counter to `NNN + V0`
 
-https://johnearnest.github.io/Octo/docs/SuperChip.html
+- Half Pixel Scroll in Low Resolution Mode
+  - If enabled, when using the scroll instructions in low resolution mode, it will scroll by "half-pixel" units instead of by "whole pixels".
+    - This is due to SUPER-CHIP and XO-CHIP using 128x64 displays, and switching to low resolution simulates a 64x32 display by making each pixel 2x2. Since the scrolling instructions were only made to work for the 128x64 display, it will still scroll by 1 pixel on the 128x64 display, even in low resolution mode.
 
-https://chip-8.github.io/extensions/
+  - If disabled, the scroll instructions will always scroll by 1 pixel using the current resolution, so scrolling down 1 unit in low resolution mode will move every pixel on the 128x64 display by 2.
 
+## Specifications and Resources
+Due to all of the quirks between different CHIP-8 extensions and implementations, finding accurate specifications for CHIP-8 and its extensions is surprisingly difficult.
 
-## RyChip8 Specifications
-Because there is a lot of "quirks" between different CHIP-8 variations and implementations, I'm listing all of the specifications and instructions that this emulator conforms to:
-
-TODO: Include full list of supported instructions and quirks.
-
-
-
-## Test Suite Used
-For easier debugging, I've used a test suite found at:
-
-https://github.com/Timendus/chip8-test-suite
-
-It contains 8 CHIP-8 test ROMs (with 7 being compatible with CHIP-8, and 1 being for SUPER-CHIP8).
-
-I'm listing it here since it was a major help in finding multiple weird bugs I encountered while playing certain ROM games on RyChip8.
-
-
-## Supported Quirks.
-Since there never was a formal specification for CHIP-8, many minor quirks
-and variations sprouted between implementations of CHIP-8. 
-
-
-Below I will list:
-  - The instruction with a quirk
-  - How I handle that instruction
-  - A description of the quirk and how different interpreters handle the instruction.
-
-
-- 8xy6 (Shift Right)
-  - RyChip8's version:
-    - Vx = Vx >> 1, VF = LSB of Vx before shift.
-  - Quirk Description
-    - On the original COSMAC VIP computers that first CHIP-8 interpreter was written on, this instruction was handled like so: 
-      ```
-      Vx = Vy >> 1, VF = LSB of Vx before shift. 
-      ```
-    - CHIP48 and more modern CHIP-8 emulators, however, have changed the original COSMAC VIP version of the instruction to the version RyChip8 uses.
-    
-
-- 8xyE (Shift Left)
-  - RyChip8's version:
-    - Vx = Vx << 1, VF = MSB of Vx before shift.
-  - Quirk Description
-    - On the original COSMAC VIP computers that first CHIP-8 interpreter was written on, this instruction was handled like so: 
-      ```
-      Vx = Vy << 1, VF = MSB of Vx before shift. 
-      ```
-    - CHIP48 and more modern CHIP-8 emulators, however, have changed the original COSMAC VIP version of the instruction to the version RyChip8 uses.
-
-- Fx55 (Save)
-  - RyChip8's version:
-    - Copy value of registers V0 to Vx (inclusive) into memory starting at `I`. Value of register `I` is not changed.
-  - Quirk Description
-    - The COSMAC VIP computers that CHIP-8 was first written on incremented the value of register `I` after each V register was placed into memory. CHIP48 and modern CHIP8 emulators no longer increment I.
-
-- Fx65 (Load)
-  - RyChip8's version:
-    - Starting at memory location specified by register `I`, each byte was copied to V0 to Vx, inclusive.
-  - Quirk Description
-    - The COSMAC VIP computers that CHIP-8 was first written on incremented the value of register `I` after a byte from memory was written to a V register. CHIP48 and modern CHIP8 emulators no longer increment I.
-
-- Dxyn (Draw) 
-  - RyChip8's version
-    - If sprite moves to edge of screen, the sprite will wrap around to the other side of the screen. The sprite will not be clipped when at the edge of a screen.
-  - Quirk Description
-    - Most CHIP8 interpreters will clip sprites if they reach the bottom or right side of the screen rather than wrap them to the other end of the screen. However, the starting location of the sprite (at (Vx, Vy)) IS WRAPPED. So if X = 68 in the framebuffer, it will wrap around to X=5.
-    - So the initial location of where to paint the sprite should wrap, but when drawing the sprite, the edge of the screen will clip off the rest of the sprite.
+However, thanks to the efforts of many people, the specifications for the CHIP-8
+and its many extensions have been documented quite well, though there is
+no single source where you can find all of the specific quirks between the CHIP-8
+extensions.
 
 
-- Bnnn (Jump with Offset)
-  - RyChip8's version
-    - Jump to value of nnn + V0
-  - Quirk Description
-    - The original COSMAC VIP CHIP-8 interpreter used the same method as my version for jumps with offsets. 
-    - However, the CHIP48 and SUPER-CHIP emulators changed it to work as Bxnn, where:
-      ```
-      Jump to address XNN + Vx.
-      ```
+For the machine description of the CHIP-8 virtual machine on the COSMAC VIP computer, I looked at the following links:
+
+- [Matthew Mikolay](https://github.com/mattmikolay/chip-8/wiki/CHIP%E2%80%908-Technical-Reference)
+- [Thomas P. Green](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM)
 
 
 
+For the original COSMAC VIP CHIP-8 intruction set, it is nicely documented here:
+
+- [Laurence Scotford](https://www.laurencescotford.net/2020/07/25/chip-8-on-the-cosmac-vip-instruction-index/)
+
+- [John Earnest](https://johnearnest.github.io/Octo/docs/chip8ref.pdf)
+
+
+
+
+For SCHIP 1.1, I primarily used this document.
+- [Original Spec By Erik Bryntse](http://devernay.free.fr/hacks/chip8/schip.txt)
+- [Description of New Instructions](https://johnearnest.github.io/Octo/docs/SuperChip.html)
+
+
+For XO-CHIP, there is luckily only one source of truth:
+- [John Earnest](https://johnearnest.github.io/Octo/docs/XO-ChipSpecification.html)
+
+
+
+If you want testing ROMs to test this emulator or even your own emulator, here
+are some great resources:
+- [CHIP-8 Test Suite](https://github.com/Timendus/chip8-test-suite)
+  - This particular resource was EXTREMELY HELPFUL when implementing the CHIP-8 emulator. 
+  - It also helped with implementing many of the CHIP-8 quirks.
+  - The suite has support for the following specifications:
+    - COSMAC VIP CHIP-8
+    - SUPER-CHIP (modern)
+    - SUPER-CHIP (legacy)
+    - XO-CHIP 
+
+
+For more information about the many CHIP-8 quirks that exist between extensions
+and implementations, read the following sources:
+
+- [Gulrak Quirk Chart](https://chip8.gulrak.net/)
+- [HP48 SuperChip Research](https://github.com/Chromatophore/HP48-Superchip)
+- [Chip8 Extension List](https://chip-8.github.io/extensions/)
+- [Another Chip8 Extension List](https://github.com/mattmikolay/chip-8/wiki/CHIP%E2%80%908-Extensions-Reference)
+
+
+
+For more information regarding CHIP-8:
+
+- [Blog About the COSMAC VIP CHIP-8](https://www.laurencescotford.net/tag/chip-8/)
+- [VIPER Newsletter Scans (the FIRST CHIP-8 specification)](https://github.com/mattmikolay/viper)
+
+
+
+## Similar Projects
+- [Octo IDE](https://johnearnest.github.io/Octo/index.html)
+  - This is a web-based CHIP-8 IDE for creating CHIP-8 games for the
+    original COSMAC VIP, the SUPER-CHIP 1.1, and the XO-CHIP.
+  - This was created by the same author who wrote the XO-CHIP specification. 

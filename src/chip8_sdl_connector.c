@@ -28,71 +28,6 @@
 
 
 
-void chip8_sdl_load_file(struct chip8_sdl_app_state *state, const char *filepath) {
-  uint8_t already_has_rom = state->loader_status == CHIP8_LOADER_STATUS_SUCCESS;
-
-  if(filepath == NULL) {
-    //if we canceled out without picking a file, we should not change the loader status
-    //if another ROM was already loaded.
-    if(!already_has_rom) {
-      state->loader_status = CHIP8_LOADER_STATUS_NO_FILE_SELECTED;
-    }
-    return;
-  }
-
-  FILE *file = fopen(filepath, "r");
-
-  //TODO: display an specific error to the user
-  if(file == NULL) {
-
-    state->loader_status = CHIP8_LOADER_STATUS_CANNOT_OPEN_FILE;
-    return;
-  }
-
-  //we only want 1 file selected
-  int success = chip8_wrapper_reset(&state->chip, file);
-
-  if(!success) {
-    fclose(file);
-    state->loader_status = CHIP8_LOADER_STATUS_CANNOT_READ_FILE;
-    return;
-  }
-
-  state->loader_status = CHIP8_LOADER_STATUS_SUCCESS;
-
-  fclose(file);
-
-}
-
-// Of type SDL_DialogFileCallback
-void SDLCALL chip8_sdl_cb_on_file_loaded(void *userdata, const char * const *filelist, int filter) {
-  struct chip8_sdl_app_state *state = userdata;
-
-  //an error occurred
-  if(filelist == NULL) {
-    printf("Error opening the file picker UI!");
-    SDL_Log("%s", SDL_GetError());
-    chip8_sdl_load_file(state, NULL);
-    return;
-  }
-
-  //no file selected
-  if(filelist[0] == NULL) {
-    chip8_sdl_load_file(state, NULL);
-    return; 
-  }
-
-  //otherwise, filelist is a pointer to a list of char* for filenames
-
-  chip8_sdl_load_file(state, filelist[0]);
-}
-
-
-void chip8_sdl_open_file_dialog(struct chip8_sdl_app_state *state) {
-  //note that this function is async, so we need to use a callback function
-  SDL_ShowOpenFileDialog(chip8_sdl_cb_on_file_loaded, (void*) state, state->window, NULL, 0, NULL, 0);
-}
-
 
 void chip8_sdl_draw_vip_chip8(struct chip8_sdl_app_state *state, int start_x, int start_y) {
   SDL_FRect rect;
@@ -312,7 +247,7 @@ void chip8_sdl_add_more_audio(struct chip8_sdl_app_state *state) {
 }
 
 /* This function runs once at startup. */
-void chip8_sdl_app_init(void **appstate, SDL_Window *window, SDL_Renderer *renderer, SDL_AudioStream *stream) {
+int chip8_sdl_app_init(void **appstate, struct chip8_init *init, SDL_Window *window, SDL_Renderer *renderer, SDL_AudioStream *stream) {
   //https://wiki.libsdl.org/SDL3/SDL_AppInit
 
   //set seed for RNG
@@ -324,11 +259,22 @@ void chip8_sdl_app_init(void **appstate, SDL_Window *window, SDL_Renderer *rende
 
   static struct chip8_sdl_app_state state;
 
-  state.loader_status = CHIP8_LOADER_STATUS_NO_FILE_SELECTED;
 
-  chip8_wrapper_init(&state.chip, CHIP8_VARIANT_SUPER);
-  //chip8_wrapper_init(&state.chip, CHIP8_VARIANT_VIP);
+  chip8_wrapper_init(&state.chip, init->type);
 
+  FILE *f = fopen(init->rom_file, "r");
+  if(f == NULL) {
+    perror("Could not open ROM file: ");
+    return 0;
+  }
+
+
+  if(!chip8_wrapper_reset(&state.chip, f)) {
+    fclose(f);
+    printf("Error, Failed to load ROM!\n");
+    return 0;
+  }
+  fclose(f);
 
 
 
@@ -345,6 +291,9 @@ void chip8_sdl_app_init(void **appstate, SDL_Window *window, SDL_Renderer *rende
   //This pointer will be passed into all of SDL's callback functions, 
   //so we will be able to track program state without global variables.
   *appstate = &state;
+
+
+  return 1;
 
 
   /* SDL_OpenAudioDeviceStream starts the device paused. You have to tell it to start! */
@@ -364,11 +313,6 @@ SDL_AppResult chip8_sdl_app_event(void *appstate, SDL_Event *event) {
       else if(event->key.scancode == SDL_SCANCODE_ESCAPE) {
         return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
       } 
-      //use SDL3's new SDL3_dialog.h header to display native dialogs for opening
-      //files to load into the emulator.
-      else if(event->key.scancode == SDL_SCANCODE_SPACE) {
-        chip8_sdl_open_file_dialog(state);
-      }
       
       //ignore all other keypresses
 
@@ -407,25 +351,23 @@ SDL_AppResult chip8_sdl_app_iterate(void *appstate) {
   
 
   //only update Chip8 when ROM is actually loaded 
-  if(state->loader_status == CHIP8_LOADER_STATUS_SUCCESS) {
 
-    for(uint8_t num_times = 0; num_times < 3; num_times++) {
-      if(!chip8_wrapper_process_instruction(&state->chip)) {
-        SDL_Log("Cannot process instruction at address %d", state->chip.core.ram[state->chip.core.pc]);
-        return SDL_APP_FAILURE;
-      }
-    }
-
-    chip8_wrapper_update_timer(&state->chip, delta);
-    
-
-    if(state->chip.core.sound_timer != 0) {
-      SDL_ResumeAudioStreamDevice(state->stream);
-    } else {
-      SDL_PauseAudioStreamDevice(state->stream);
+  for(uint8_t num_times = 0; num_times < 3; num_times++) {
+    if(!chip8_wrapper_process_instruction(&state->chip)) {
+      SDL_Log("Cannot process instruction at address %d", state->chip.core.ram[state->chip.core.pc]);
+      return SDL_APP_FAILURE;
     }
   }
+
+  chip8_wrapper_update_timer(&state->chip, delta);
   
+
+  if(state->chip.core.sound_timer != 0) {
+    SDL_ResumeAudioStreamDevice(state->stream);
+  } else {
+    SDL_PauseAudioStreamDevice(state->stream);
+  }
+
 
 
   //play audio (once it unpauses)
@@ -466,26 +408,7 @@ SDL_AppResult chip8_sdl_app_iterate(void *appstate) {
   x = ( (w / scale) - (CHIP8_WIDTH * CHIP8_SDL_PIXEL_SIZE)) / 2; //center horizontally
   y = ( (h / scale) - (CHIP8_HEIGHT * CHIP8_SDL_PIXEL_SIZE)) / 2; //center veritcally
 
-  switch(state->loader_status) {
-    case CHIP8_LOADER_STATUS_SUCCESS: chip8_sdl_draw_chip8(state, x, y); break;
-    case CHIP8_LOADER_STATUS_CANNOT_OPEN_FILE: {
-      SDL_SetRenderDrawColor(state->renderer, 255, 0, 0, 255);
-      SDL_RenderDebugText(state->renderer, x, y, "Cannot open file!");
-      break;
-    }
-    case CHIP8_LOADER_STATUS_CANNOT_READ_FILE: {
-      SDL_SetRenderDrawColor(state->renderer, 255, 0, 0, 255);
-      SDL_RenderDebugText(state->renderer, x, y, "Cannot read file!");
-      break;
-    }
-    case CHIP8_LOADER_STATUS_NO_FILE_SELECTED: {
-      SDL_SetRenderDrawColor(state->renderer, 255, 0, 0, 255);
-      SDL_RenderDebugText(state->renderer, x, y, "No ROM loaded!");
-      break;
-    }
-  }
-  
-
+  chip8_sdl_draw_chip8(state, x, y);
 
   x = ( (w / scale) - ((SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE + CHIP8_SDL_PIXELS_BETWEEN_DEBUG_CHARS) * 16)) / 2; //center horizontally
   y = 7 * ( (h / scale) - (SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE + CHIP8_SDL_PIXELS_BETWEEN_DEBUG_CHARS)) / 8; //top 3/4th of screen

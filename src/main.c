@@ -21,13 +21,69 @@
 #include <time.h>
 #include <limits.h>
 
+
 #include "chip8_sdl_connector.h"
 
 
+int parse_command_line_args(struct chip8_init *init, int argc, char **argv) {
+  char *chip_rom = NULL;
+  enum chip8_emu_type type;
+
+  uint8_t emu_selected = 0;
+
+  for(uint32_t i = 1; i < argc; i++) {
+    if(strcmp(argv[i], "--type") == 0) {
+      if(emu_selected) {
+        printf("Error: Duplicate --type argument!\n");
+        return 0;
+      }
+
+      emu_selected = 1;
+
+      i++;
+
+      if(i >= argc) {
+        printf("Error: Invalid argument after --type! Argument must be VIP, SUPER, or XO. \n");
+        return 0;
+      }
+
+      char *emu_type = argv[i];
+
+      if(strcmp(emu_type, "VIP") == 0) {
+        type = CHIP8_VARIANT_VIP;
+      } else if(strcmp(emu_type, "SUPER") == 0) {
+        type = CHIP8_VARIANT_SUPER;
+      } else if(strcmp(emu_type, "XO") == 0) {
+        type = CHIP8_VARIANT_XO;
+      } else {
+        printf("Error: Invalid argument after --type! Argument must be VIP, SUPER, or XO. \n");
+        return 0;
+      }
+    } else {
+
+      if(chip_rom != NULL) {
+        printf("Error: You cannot run multiple CHIP-8 ROMs!\n");
+        return 0;
+      }
+
+      chip_rom = argv[i];
+    }
+  }
+
+  init->rom_file = chip_rom;
+  init->type = type;
+
+  return 1;
+}
 
 /* This function runs once at startup. */
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
+  struct chip8_init init;
+  if(!parse_command_line_args(&init, argc, argv)) {
+    return SDL_APP_FAILURE; 
+  }
+
   //https://wiki.libsdl.org/SDL3/SDL_AppInit
 
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
@@ -64,7 +120,10 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     return SDL_APP_FAILURE;
   }
 
-  chip8_sdl_app_init(appstate, window, renderer, stream);
+
+  if(!chip8_sdl_app_init(appstate, &init, window, renderer, stream)) {
+    return SDL_APP_FAILURE;
+  }
 
   return SDL_APP_CONTINUE;
 }

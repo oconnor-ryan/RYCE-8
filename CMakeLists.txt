@@ -14,8 +14,11 @@ set(CMAKE_BUILD_TYPE "Debug")
 # This assumes the SDL source is available in vendor/SDL
 add_subdirectory(vendor/SDL EXCLUDE_FROM_ALL)
 
-# Create your game executable target as usual
-add_executable(rychip8 MACOSX_BUNDLE src/main.c src/chip8.c src/chip8_sdl_connector.c src/chip8_core.c src/schip8.c src/vip_chip8.c src/util.c)
+# This version creates a .app file for MACOS rather than a Unix Executable.
+#add_executable(rychip8 MACOS_BUNDLE src/main.c src/chip8.c src/chip8_sdl_connector.c src/chip8_core.c src/schip8.c src/vip_chip8.c src/util.c)
+
+
+add_executable(rychip8 src/main.c src/chip8.c src/chip8_sdl_connector.c src/chip8_core.c src/schip8.c src/vip_chip8.c src/util.c)
 
 #note that this is required for MacOS Cocoa apps. 
 # The file contains properties that allow the app to open files on the user's computer.

@@ -75,7 +75,6 @@ on all emulators.
 Here's the list of all configurable quirks supported by this emulator:
 
 - Bit shift instructions shift `Vy` into `Vx`
-  - Affects
   - If enabled, this quirk will force bit shift operations to shift `Vy` into `Vx`
     - `Vx = Vy << 1`
     - `Vx = Vy >> 1`

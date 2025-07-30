@@ -179,3 +179,4 @@ For more information regarding CHIP-8:
   - This is a web-based CHIP-8 IDE for creating CHIP-8 games for the
     original COSMAC VIP, the SUPER-CHIP 1.1, and the XO-CHIP.
   - This was created by the same author who wrote the XO-CHIP specification. 
+- [JAXE Emulator](https://github.com/kurtjd/jaxe)

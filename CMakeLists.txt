@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(rychip8)
+project(rice8)
 
 # set the output directory for built objects.
 # This makes sure that the dynamic library goes into the build directory automatically.
@@ -15,14 +15,14 @@ set(CMAKE_BUILD_TYPE "Debug")
 add_subdirectory(vendor/SDL EXCLUDE_FROM_ALL)
 
 # This version creates a .app file for MACOS rather than a Unix Executable.
-#add_executable(rychip8 MACOS_BUNDLE src/main.c src/chip8.c src/chip8_sdl_connector.c src/chip8_core.c src/schip8.c src/vip_chip8.c src/util.c)
+#add_executable(rice8 MACOS_BUNDLE src/main.c src/chip8.c src/chip8_sdl_connector.c src/chip8_core.c src/schip8.c src/vip_chip8.c src/util.c)
 
 
-add_executable(rychip8 src/main.c src/chip8.c src/chip8_sdl_connector.c src/chip8_core.c src/schip8.c src/vip_chip8.c src/util.c)
+add_executable(rice8 src/main.c src/chip8.c src/chip8_sdl_connector.c src/chip8_core.c src/schip8.c src/vip_chip8.c src/util.c)
 
 #note that this is required for MacOS Cocoa apps. 
 # The file contains properties that allow the app to open files on the user's computer.
-set_target_properties(rychip8 PROPERTIES MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/macos/RyChip8.entitlements")
+set_target_properties(rice8 PROPERTIES MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/macos/rice8.entitlements")
 
 # Link to the actual SDL3 library.
-target_link_libraries(rychip8 PRIVATE SDL3::SDL3)
+target_link_libraries(rice8 PRIVATE SDL3::SDL3)

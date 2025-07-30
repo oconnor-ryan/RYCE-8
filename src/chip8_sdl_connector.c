@@ -385,7 +385,7 @@ SDL_AppResult chip8_sdl_app_iterate(void *appstate) {
 
 
   //render
-  const char *message = "RyChip8";
+  const char *message = "RICE8";
   int w = 0, h = 0;
   float x, y;
   const float scale = 4.0f;

@@ -161,6 +161,13 @@ For more information regarding CHIP-8:
 - [VIPER Newsletter Scans (the FIRST CHIP-8 specification)](https://github.com/mattmikolay/viper)
 
 
+## CHIP-8 Games
+CHIP-8 was designed specifically for making and playing games. So, here is a list of external CHIP-8 game archives that I've found where you can download CHIP-8 ROMs and play them on this emulator:
+- [John Earnest's Community Archive](https://github.com/JohnEarnest/chip8Archive)
+- [Matt Mikolay's Games and Demos](https://github.com/mattmikolay/chip-8/tree/master)
+
+In the `./mygames` directory of this project, you will also find a list of demos and games written by me. Each ROM in this directory has the `.ch8` extension, and the files with the `.txt` extension contain the pseudo-code for the ROM of the same name. I included the pseudo-code files because it's easy to get lost when writing CHIP-8 code in a hexadecimal editor, and the pseudo-code is very useful both for myself and anyone curious about developing CHIP-8 games.
+
 
 ## Similar Projects
 - [Octo IDE](https://johnearnest.github.io/Octo/index.html)

@@ -7,9 +7,11 @@ XO-CHIP specification.
 There features are planned to be completed in the near future, but are not
 currently implemented yet:
 - Support for XO-CHIP
+- Sensible defaults for number of CHIP8 "CPU cycles" to run every second for each platform. Many VIP CHIP-8 games run really slow right now since only one instruction is run per frame.
 - User Configuration For Emulator
   - Toggleable CHIP-8 Quirks
   - Option to change color of foreground and background pixels
+  - Configurable clock cycle (instructions per second)
 - Add a user manual for the emulator and make it available using a --help command or when using invalid arguments.
 
 

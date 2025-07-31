@@ -3,6 +3,16 @@ A CHIP-8 emulator that primarily supports the original CHIP-8 specification
 for the COSMAC VIP computer, the SUPER-CHIP 1.1 specification, and the
 XO-CHIP specification.
 
+## Current Work-In-Progress Features
+There features are planned to be completed in the near future, but are not
+currently implemented yet:
+- Support for XO-CHIP
+- User Configuration For Emulator
+  - Toggleable CHIP-8 Quirks
+  - Option to change color of foreground and background pixels
+- Add a user manual for the emulator and make it available using a --help command or when using invalid arguments.
+
+
 ## Supported Platforms
 This has been primary tested on MacOS, though I did not include any compiler-specific
 or platform-specific code, and SDL is a cross-platform library, so I assume this
@@ -44,27 +54,6 @@ command line arguments:
 
 
 
-## Current Goals
-- Add support for more Chip8 variations:
-  - The original COSMAC VIP CHIP-8 (NOW SUPPORTED)
-  - SCHIP 1.1 (NOW SUPPORTED).
-  - XO-Chip 
-
-- Add command line options to configure the emulator...
-  - Toggle all supported quirks.
-  - Include a `man` page or a --help option to document the command line options.
-  - Change the color of the displayed colors.
-
-### Quality of Life Goals
-> Note that these features would be great for the users of this emulator, but since
-> the focus of this project is emulation and not user experience, these features
-> are low priority and will likely not be implemented.
-
-- Add a GUI that allows users to...
-  - Switch between using the COSMAC VIP CHIP-8, SCHIP 1.1, and XO-CHIP emulators.
-  - Individually toggle all of the supported CHIP-8 quirks for improved compatibility.
-  - Change key bindings
-  - Change the color of displayed pixels in emulator.
 
 ## Supported Quirks
 CHIP-8 has had many extensions over the years, many of which coming with their
@@ -179,3 +168,15 @@ For more information regarding CHIP-8:
     original COSMAC VIP, the SUPER-CHIP 1.1, and the XO-CHIP.
   - This was created by the same author who wrote the XO-CHIP specification. 
 - [JAXE Emulator](https://github.com/kurtjd/jaxe)
+
+
+## Optional TODO List for User Experience
+> Note that these features would be great for the users of this emulator, but since
+> the focus of this project is emulation and not user experience, these features
+> are low priority and will likely not be implemented.
+
+- Add a GUI that allows users to...
+  - Switch between using the COSMAC VIP CHIP-8, SCHIP 1.1, and XO-CHIP emulators.
+  - Individually toggle all of the supported CHIP-8 quirks for improved compatibility.
+  - Change key bindings
+  - Change the color of displayed pixels in emulator.

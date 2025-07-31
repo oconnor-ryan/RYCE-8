@@ -28,7 +28,7 @@ It also includes the following external projects as Git submodules:
 
 When you clone this repository, it is recommended that you also include the previously listed Git submodules using the following command: 
 ```
-git clone --recurse-submodules :URL:
+git clone --recurse-submodules <URL>
 ```
 
 After you clone the repository (including submodules), you just need to run the following to build the project:

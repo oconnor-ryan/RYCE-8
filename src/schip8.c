@@ -1,8 +1,7 @@
 #include "schip8.h"
 #include <string.h>
 
-#define SCHIP8_HEIGHT 64
-#define SCHIP8_WIDTH 128
+
 
 
 //the original SUPER-CHIP did not define A-F in its large fontset,
@@ -30,12 +29,12 @@ void schip8_init(struct schip8 *vm) {
   //set pointers to allocated memory
   vm->core->ram = vm->alloc_ram;
   vm->core->stack = (uint16_t*) (vm->alloc_ram + CHIP8_STACK_START);
-  vm->core->fb = vm->fb.x64_32;
+  vm->core->fb = (uint64_t *) vm->fb;
 
   //initialize sizes
   vm->core->ram_size = sizeof(vm->alloc_ram);
   vm->core->stack_size = 16;
-  vm->core->fb_size = sizeof(vm->fb.x128_64);
+  vm->core->fb_size = sizeof(vm->fb);
 
   //start at lores by default
   vm->res = SCHIP_DISPLAY_LORES;
@@ -50,7 +49,7 @@ void schip8_init(struct schip8 *vm) {
 }
 
 /* Note that scrolling instructions will NOT WRAP sprites. */
-static inline int schip8_ins_00(struct schip8 *vm, uint8_t low) {
+static inline int schip8_ins_00(struct chip8_core *core, struct uint128 *fb, enum schip_display_res *res, uint8_t *will_exit, uint8_t low) {
   //00CN*    Scroll display N lines down
   if(low >> 4 == 0xC) {
     uint8_t n = low & 0x0F;
@@ -58,8 +57,8 @@ static inline int schip8_ins_00(struct schip8 *vm, uint8_t low) {
     //if the "half scroll" quirk for lores scrolling is NOT enabled
     //and the emulator is in lores mode,
     //we need to scroll down 2 pixels instead of 1.
-    if(!(vm->core->quirks & CHIP8_QUIRK_HALF_PIXEL_SCROLL_LOW_RES) 
-    && vm->res == SCHIP_DISPLAY_LORES) {
+    if(!(core->quirks & CHIP8_QUIRK_HALF_PIXEL_SCROLL_LOW_RES) 
+    && *res == SCHIP_DISPLAY_LORES) {
       n *= 2;
     }
     
@@ -68,9 +67,9 @@ static inline int schip8_ins_00(struct schip8 *vm, uint8_t low) {
     for(uint8_t num_rows_from_bottom = n; num_rows_from_bottom < SCHIP8_HEIGHT; num_rows_from_bottom++) {
       uint8_t move_from = SCHIP8_HEIGHT-1 - num_rows_from_bottom;
       uint8_t move_to = move_from + n;
-      vm->fb.x128_64[move_to] = vm->fb.x128_64[move_from];
+      fb[move_to] = fb[move_from];
       //make sure to clear row being moved from
-      memset(&vm->fb.x128_64[move_from], 0, sizeof(vm->fb.x128_64[move_from]));
+      memset(&fb[move_from], 0, sizeof(fb[move_from]));
     }
 
     return 1;
@@ -84,13 +83,13 @@ static inline int schip8_ins_00(struct schip8 *vm, uint8_t low) {
       //if the "half scroll" quirk for lores scrolling is NOT enabled
       //and the emulator is in lores mode,
       //we need to scroll down 2 pixels instead of 1.
-      if(!(vm->core->quirks & CHIP8_QUIRK_HALF_PIXEL_SCROLL_LOW_RES) 
-      && vm->res == SCHIP_DISPLAY_LORES) {
+      if(!(core->quirks & CHIP8_QUIRK_HALF_PIXEL_SCROLL_LOW_RES) 
+      && *res == SCHIP_DISPLAY_LORES) {
         shift_amount = 8;
       }
 
       for(uint8_t r = 0; r < SCHIP8_HEIGHT; r++) {
-        vm->fb.x128_64[r] = uint128_logical_right_shift(vm->fb.x128_64[r], shift_amount);
+        fb[r] = uint128_logical_right_shift(fb[r], shift_amount);
       }
       break;
     }
@@ -101,13 +100,13 @@ static inline int schip8_ins_00(struct schip8 *vm, uint8_t low) {
       //if the "half scroll" quirk for lores scrolling is NOT enabled
       //and the emulator is in lores mode,
       //we need to scroll down 2 pixels instead of 1.
-      if(!(vm->core->quirks & CHIP8_QUIRK_HALF_PIXEL_SCROLL_LOW_RES) 
-      && vm->res == SCHIP_DISPLAY_LORES) {
+      if(!(core->quirks & CHIP8_QUIRK_HALF_PIXEL_SCROLL_LOW_RES) 
+      && *res == SCHIP_DISPLAY_LORES) {
         shift_amount = 8;
       }
 
       for(uint8_t r = 0; r < SCHIP8_HEIGHT; r++) {
-        vm->fb.x128_64[r] = uint128_left_shift(vm->fb.x128_64[r], shift_amount);
+        fb[r] = uint128_left_shift(fb[r], shift_amount);
       }
 
       break;
@@ -115,13 +114,13 @@ static inline int schip8_ins_00(struct schip8 *vm, uint8_t low) {
 
     //00FD*    Exit CHIP interpreter
     case 0xFD: {
-      vm->will_exit = 1;
+      *will_exit = 1;
       break;
     }
 
     //00FE*    Disable extended screen mode
     case 0xFE: {
-      vm->res = SCHIP_DISPLAY_LORES;
+      *res = SCHIP_DISPLAY_LORES;
       break;
     }
 
@@ -129,7 +128,7 @@ static inline int schip8_ins_00(struct schip8 *vm, uint8_t low) {
     case 0xFF: {
 
       //if its already enabled, ignore.
-      vm->res = SCHIP_DISPLAY_HIRES;
+      *res = SCHIP_DISPLAY_HIRES;
 
       /*
 
@@ -150,12 +149,12 @@ static inline int schip8_ins_00(struct schip8 *vm, uint8_t low) {
           //uint8_t is_lit = (row & (((uint64_t) 1 << 63) >> c)) ? 3 : 0;
 
           if(is_lit) {
-            vm->fb.x128_64[2*r].lsb |= mask3 << 2*c;
-            vm->fb.x128_64[2*r + 1].lsb |= mask3 << 2*c;
+            vm->fb[2*r].lsb |= mask3 << 2*c;
+            vm->fb[2*r + 1].lsb |= mask3 << 2*c;
 
           } else {
-            vm->fb.x128_64[2*r].lsb &= ~ (mask3 << 2*c);
-            vm->fb.x128_64[2*r + 1].lsb &= ~ (mask3 << 2*c);
+            vm->fb[2*r].lsb &= ~ (mask3 << 2*c);
+            vm->fb[2*r + 1].lsb &= ~ (mask3 << 2*c);
 
           }
         }
@@ -163,12 +162,12 @@ static inline int schip8_ins_00(struct schip8 *vm, uint8_t low) {
           uint8_t is_lit = (row & ((uint64_t) 1 << c)) ? 1 : 0;
           //uint8_t is_lit = (row & (((uint64_t) 1 << 63) >> c)) ? 3 : 0;
           if(is_lit) {
-            vm->fb.x128_64[2*r].msb |= mask3 << 2*c;
-            vm->fb.x128_64[2*r + 1].msb |= mask3 << 2*c;
+            vm->fb[2*r].msb |= mask3 << 2*c;
+            vm->fb[2*r + 1].msb |= mask3 << 2*c;
 
           } else {
-            vm->fb.x128_64[2*r].msb &= ~(mask3 << 2*c);
-            vm->fb.x128_64[2*r + 1].msb &= ~(mask3 << 2*c);
+            vm->fb[2*r].msb &= ~(mask3 << 2*c);
+            vm->fb[2*r + 1].msb &= ~(mask3 << 2*c);
           }
           
         }
@@ -192,7 +191,7 @@ static inline int schip8_ins_00(struct schip8 *vm, uint8_t low) {
   This means for each sprite row, we draw onto 2 framebuffer rows and
   make sure that we draw 2 columns for each 1x1 pixel in the sprite.
 */
-void schip8_draw_64x32(struct schip8 *vm, uint8_t high, uint8_t low) {
+void schip8_draw_64x32(struct uint128 *fb, struct chip8_core *core, uint8_t high, uint8_t low) {
   uint8_t x = high & 0x0F;
   uint8_t y = low >> 4;
   uint8_t n = low & 0x0F;
@@ -222,8 +221,8 @@ void schip8_draw_64x32(struct schip8 *vm, uint8_t high, uint8_t low) {
 
   //Note: ONLY Initial X and Y coordinates get WRAPPED AROUND.
   //Make sure to use modulus
-  uint8_t fbx = vm->core->V[x]*2 % SCHIP8_WIDTH;
-  uint8_t fby = vm->core->V[y]*2 % SCHIP8_HEIGHT;
+  uint8_t fbx = core->V[x]*2 % SCHIP8_WIDTH;
+  uint8_t fby = core->V[y]*2 % SCHIP8_HEIGHT;
 
   //when drawing the sprite, you want to CLIP them if they go off-screen,
   //NOT WRAPAROUND
@@ -245,8 +244,8 @@ void schip8_draw_64x32(struct schip8 *vm, uint8_t high, uint8_t low) {
   for(uint8_t i = 0; i < n; i++) {
 
     //grab copy of row, make sure to grab 2 rows since we are rendering 2x2 pixels.
-    struct uint128 old_row1 = vm->fb.x128_64[fby];
-    struct uint128 old_row2 = vm->fb.x128_64[fby+1];
+    struct uint128 old_row1 = fb[fby];
+    struct uint128 old_row2 = fb[fby+1];
 
 
     //create mask for bits we are going to draw to. 
@@ -265,7 +264,7 @@ void schip8_draw_64x32(struct schip8 *vm, uint8_t high, uint8_t low) {
 
     //create a empty 64-bit row, get an 8-bit row from our sprite, and
     //shift our sprite's row into the empty row
-    uint8_t sprite_row_data_raw = vm->core->ram[vm->core->I + i];
+    uint8_t sprite_row_data_raw = core->ram[core->I + i];
 
     //for every pixel, repeat its value on 2 columns so that it can be rendered as a 2x2 pixel
     // on a 128x64 framebuffer.
@@ -309,8 +308,8 @@ void schip8_draw_64x32(struct schip8 *vm, uint8_t high, uint8_t low) {
 
 
     //draw row to framebuffer
-    vm->fb.x128_64[fby] = uint128_xor(vm->fb.x128_64[fby], sprite_row1);
-    vm->fb.x128_64[fby+1] = uint128_xor(vm->fb.x128_64[fby+1], sprite_row2);
+    fb[fby] = uint128_xor(fb[fby], sprite_row1);
+    fb[fby+1] = uint128_xor(fb[fby+1], sprite_row2);
 
 
 
@@ -322,10 +321,10 @@ void schip8_draw_64x32(struct schip8 *vm, uint8_t high, uint8_t low) {
   }
 
   //remember that V MUST BE 0 or 1, it cannot be any other value
-  vm->core->V[15] = collision ? 1 : 0;
+  core->V[15] = collision ? 1 : 0;
 }
 
-void schip8_draw_128x64(struct schip8 *vm, uint8_t high, uint8_t low) {
+void schip8_draw_128x64(struct uint128 *fb, struct chip8_core *core, uint8_t high, uint8_t low) {
   uint8_t x = high & 0x0F;
   uint8_t y = low >> 4;
   uint8_t n = low & 0x0F;
@@ -355,8 +354,8 @@ void schip8_draw_128x64(struct schip8 *vm, uint8_t high, uint8_t low) {
 
   //Note: ONLY Initial X and Y coordinates get WRAPPED AROUND.
   //Make sure to use modulus
-  uint8_t fbx = vm->core->V[x] % SCHIP8_WIDTH;
-  uint8_t fby = vm->core->V[y] % SCHIP8_HEIGHT;
+  uint8_t fbx = core->V[x] % SCHIP8_WIDTH;
+  uint8_t fby = core->V[y] % SCHIP8_HEIGHT;
 
   //when drawing the sprite, you want to CLIP them if they go off-screen,
   //NOT WRAPAROUND
@@ -367,7 +366,7 @@ void schip8_draw_128x64(struct schip8 *vm, uint8_t high, uint8_t low) {
     for(uint8_t i = 0; i < 16; i++) {
 
       //grab copy of row
-      struct uint128 old_row = vm->fb.x128_64[fby];
+      struct uint128 old_row = fb[fby];
 
 
       //create mask for bits we are going to draw to. 
@@ -388,7 +387,7 @@ void schip8_draw_128x64(struct schip8 *vm, uint8_t high, uint8_t low) {
 
       //create a empty 64-bit row, get an 8-bit row from our sprite, and
       //shift our sprite's row into the empty row
-      uint8_t sprite_row_data = vm->core->ram[vm->core->I + i];
+      uint8_t sprite_row_data = core->ram[core->I + i];
       
       struct uint128 sprite_row;
       sprite_row.msb = (uint64_t)sprite_row_data << 48;
@@ -409,7 +408,7 @@ void schip8_draw_128x64(struct schip8 *vm, uint8_t high, uint8_t low) {
 
 
       //draw row to framebuffer
-      vm->fb.x128_64[fby] = uint128_xor(vm->fb.x128_64[fby], sprite_row);
+      fb[fby] = uint128_xor(fb[fby], sprite_row);
 
 
 
@@ -432,7 +431,7 @@ void schip8_draw_128x64(struct schip8 *vm, uint8_t high, uint8_t low) {
     for(uint8_t i = 0; i < n; i++) {
 
       //grab copy of row
-      struct uint128 old_row = vm->fb.x128_64[fby];
+      struct uint128 old_row = fb[fby];
 
 
       //create mask for bits we are going to draw to. 
@@ -450,7 +449,7 @@ void schip8_draw_128x64(struct schip8 *vm, uint8_t high, uint8_t low) {
 
       //create a empty 64-bit row, get an 8-bit row from our sprite, and
       //shift our sprite's row into the empty row
-      uint8_t sprite_row_data = vm->core->ram[vm->core->I + i];
+      uint8_t sprite_row_data = core->ram[core->I + i];
       
       struct uint128 sprite_row;
       sprite_row.msb = (uint64_t)sprite_row_data << 56;
@@ -470,7 +469,7 @@ void schip8_draw_128x64(struct schip8 *vm, uint8_t high, uint8_t low) {
 
 
       //draw row to framebuffer
-      vm->fb.x128_64[fby] = uint128_xor(vm->fb.x128_64[fby], sprite_row);
+      fb[fby] = uint128_xor(fb[fby], sprite_row);
 
 
 
@@ -486,41 +485,41 @@ void schip8_draw_128x64(struct schip8 *vm, uint8_t high, uint8_t low) {
     }
   }
 
-  vm->core->V[15] = num_collided_or_clipped_rows;
+  core->V[15] = num_collided_or_clipped_rows;
 }
 
 
 
-static inline int schip8_ins_D(struct schip8 *vm, uint8_t high, uint8_t low) {
-  if(vm->res == SCHIP_DISPLAY_LORES) {
-    schip8_draw_64x32(vm, high, low);
+static inline int schip8_ins_D(struct uint128 *fb, struct chip8_core *core, enum schip_display_res *res, uint8_t high, uint8_t low) {
+  if(*res == SCHIP_DISPLAY_LORES) {
+    schip8_draw_64x32(fb, core, high, low);
     return 1;
   } else {
-    schip8_draw_128x64(vm, high, low);
+    schip8_draw_128x64(fb, core, high, low);
     return 1;
   }
 }
 
 
-static inline int schip8_ins_F(struct schip8 *vm, uint8_t high, uint8_t low) {
+static inline int schip8_ins_F(struct chip8_core *core, uint8_t *rpl_flags, uint8_t high, uint8_t low) {
   uint8_t x = high & 0x0F;
 
   switch(low) {
     //FX30*    Point I to 10-byte font sprite for digit VX (0..9)
     case 0x30: {
-      vm->core->I = vm->core->ram[SCHIP_LARGE_FONT_LOC + vm->core->V[x]];
+      core->I = core->ram[SCHIP_LARGE_FONT_LOC + core->V[x]];
       break;
     }
 
     //FX75*    Store V0..VX in RPL user flags (X <= 7)
     case 0x75: {
-      memcpy(vm->rpl_flags, vm->core->V, x <= 7 ? x : 7);
+      memcpy(rpl_flags, core->V, x <= 7 ? x : 7);
       break;
     }
 
     //FX85*    Read V0..VX from RPL user flags (X <= 7)
     case 0x85: {
-      memcpy(vm->core->V, vm->rpl_flags, x <= 7 ? x : 7);
+      memcpy(core->V, rpl_flags, x <= 7 ? x : 7);
       break;
     }
 
@@ -534,48 +533,55 @@ static inline int schip8_ins_F(struct schip8 *vm, uint8_t high, uint8_t low) {
 int schip8_reset(struct schip8 *vm, FILE *file) {
   memset(&vm->fb, 0, sizeof(vm->fb));
   vm->res = SCHIP_DISPLAY_LORES;
+  //copy font to correct memory address
+  memcpy(&vm->core->ram[SCHIP_LARGE_FONT_LOC], SCHIP_HEX_FONT, sizeof(SCHIP_HEX_FONT));
   return chip8_reset(vm->core, file);
 
 }
 
-int schip8_process_new_instruction(struct schip8 *vm) {
+int schip8_process_new_instruction(struct uint128 *fb, struct chip8_core *core, uint8_t *rpl_flags, enum schip_display_res *res, uint8_t *will_exit) {
 
-  uint8_t high = vm->core->ram[vm->core->pc];
-  uint8_t low = vm->core->ram[vm->core->pc+1];
+  uint8_t high = core->ram[core->pc];
+  uint8_t low = core->ram[core->pc+1];
 
   //INCREMENT PC!!!
   // TODO: You should probably put this in the Chip8 wrapper to avoid 
   //having to repeat this code for every Chip8 variant.
-  uint16_t old_pc = vm->core->pc;
-  vm->core->pc += 2;
+  uint16_t old_pc = core->pc;
+  core->pc += 2;
 
 
   uint8_t result = 0;
   if(high == 0x00) {
-    result = schip8_ins_00(vm, low);
+    result = schip8_ins_00(core, fb, res, will_exit, low);
   } else if((high >> 4) == 0xD) {
-    result = schip8_ins_D(vm, high, low);
+    result = schip8_ins_D(fb, core, res, high, low);
   } else if((high >> 4) == 0xF) {
-    result = schip8_ins_F(vm, high, low);
+    result = schip8_ins_F(core, rpl_flags, high, low);
   } 
 
   if(!result) {
     //jump back
-    vm->core->pc = old_pc;
+    core->pc = old_pc;
     return 0;
   }
 
   return 1;
 }
 
-int schip8_process_instruction(struct schip8 *vm) {
-  
+int schip8_process_instruction_general(struct uint128 *fb, struct chip8_core *core, uint8_t *rpl_flags, enum schip_display_res *res, uint8_t *will_exit) {
+
   //we first look for the new instructions, then the old instructions.
   //if current instruction belongs to neither of these sets, throw error
-  if(!schip8_process_new_instruction(vm) && !chip8_process_instruction(vm->core)) {
+  if(!schip8_process_new_instruction(fb, core, rpl_flags, res, will_exit) && !chip8_process_instruction(core)) {
     return 0;
   }
 
   return 1;
+}
+
+
+int schip8_process_instruction(struct schip8 *vm) {
+  return schip8_process_instruction_general(vm->fb, vm->core, vm->rpl_flags, &vm->res, &vm->will_exit);
 }
 

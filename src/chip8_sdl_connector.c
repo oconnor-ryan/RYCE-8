@@ -119,8 +119,8 @@ void chip8_sdl_draw_schip8(struct chip8_sdl_app_state *state, int start_x, int s
 
   //64 rows, 128 columns
   for(uint8_t i = 0; i < 64; i++) {
-    uint64_t column_left = state->chip.vm.super.fb.x128_64[i].msb;
-    uint64_t column_right = state->chip.vm.super.fb.x128_64[i].lsb;
+    uint64_t column_left = state->chip.vm.super.fb[i].msb;
+    uint64_t column_right = state->chip.vm.super.fb[i].lsb;
 
     //we shift to right until the set bit is pushed out
     for(uint64_t c = (uint64_t)1 << 63; c != 0; c >>= 1) {

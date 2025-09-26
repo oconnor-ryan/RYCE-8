@@ -13,7 +13,10 @@ currently implemented yet:
   - Option to change color of foreground and background pixels
   - Configurable clock cycle (instructions per second)
 - Add a user manual for the emulator and make it available using a --help command or when using invalid arguments.
-
+- Add basic error handling that prints debugging information to the console if an error occurs. It should be able to catch the following errors:
+  - Unknown Instruction
+  - Memory Out-of-Bounds
+  
 
 ## Supported Platforms
 This has been primary tested on MacOS, though I did not include any compiler-specific

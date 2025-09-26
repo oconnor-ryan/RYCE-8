@@ -1,4 +1,4 @@
-# Ryan's Introductory Chip8 Emulator (RICE8)
+# RYan's Chip8 Emulator (RYCE8)
 A CHIP-8 emulator that primarily supports the original CHIP-8 specification
 for the COSMAC VIP computer, the SUPER-CHIP 1.1 specification, and the
 XO-CHIP specification.
@@ -42,7 +42,7 @@ cmake --build build
 The built application will be inside the build folder.
 
 ## Usage
-`rice8 --type <VIP | SUPER | XO> <ROM_FILE_PATH>`
+`ryce8 --type <VIP | SUPER | XO> <ROM_FILE_PATH>`
 
 After generating the executable, you are required to provide the following 
 command line arguments:
